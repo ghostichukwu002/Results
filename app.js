@@ -40,10 +40,11 @@
     $('#roleBadge').textContent=isAdmin?'Course administrator':'Student account';$('#roleBadge').classList.toggle('admin',isAdmin);
     $('#coursesNav').classList.toggle('hidden',!isAdmin);
     $('#permissionTitle').textContent=isAdmin?'Course administrator + student':'Student access';
-    $('#permissionCopy').textContent=isAdmin?'You can maintain the shared departmental course catalogue. Your own results remain private, just like every other user’s. Admin access does not let you view another person’s grades or documents.':'You can upload and manage your own results, documents and academic history. Other users cannot access your records.';
+    $('#permissionCopy').textContent=isAdmin?'You can view and maintain the full departmental course list. Your own results remain private; admin access does not reveal another student’s grades or documents.':'You can upload and manage your own results, documents and academic history. Other users cannot access your records.';
     $('#studentAccessNote').classList.toggle('hidden',isAdmin);
-    if(isAdmin) await seedDepartmentCourses();
+    if(isAdmin){await seedDepartmentCourses();await loadCourses();}
     await refreshData();
+    if(isAdmin) navigate('courses');
   }
   async function refreshData(){
     if(!currentUser)return;
@@ -61,9 +62,7 @@
     $('#resultsList').innerHTML=rs.length?renderRows(rs):'<div class="empty-state"><div class="empty-icon">▤</div><h3>No results added yet</h3><p>Upload your result document to start your personal academic archive.</p><button class="outline-btn" data-goto="uploads">Upload a result</button></div>';
     $('#recentResults').querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>navigate(b.dataset.goto));
     $('#resultsList').querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>navigate(b.dataset.goto));
-    if(isAdmin) await loadCourses();
   }
-
   function renderCharts(rows){
     const performanceCanvas=$('#performanceChart'),gradeCanvas=$('#gradeChart');
     if(!performanceCanvas||!gradeCanvas||!window.Chart)return;
@@ -78,25 +77,13 @@
     const hasPerformance=semesters.some(([,v])=>v.units>0);
     $('#performanceEmpty').classList.toggle('hidden',hasPerformance);
     if(performanceChart)performanceChart.destroy();
-    performanceChart=new Chart(performanceCanvas,{
-      type:'line',
-      data:{labels:semesters.map(([label])=>label),datasets:[{label:'Semester GPA',data:semesters.map(([,v])=>v.units?Number((v.points/v.units).toFixed(2)):null),borderColor:'#df7738',backgroundColor:'rgba(223,119,56,.13)',fill:true,tension:.38,pointRadius:4,pointHoverRadius:6,pointBackgroundColor:'#df7738',pointBorderColor:'#fff',pointBorderWidth:2,spanGaps:true}]},
-      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1d304b',padding:11,displayColors:false,callbacks:{label:c=>' GPA: '+(c.parsed.y??'—')}}},scales:{x:{grid:{display:false},ticks:{color:'#8a94a2',font:{size:10},maxRotation:0,autoSkip:true}},y:{beginAtZero:true,suggestedMax:5,grid:{color:'rgba(30,48,75,.07)'},ticks:{color:'#8a94a2',font:{size:10},precision:1}}}}
-    });
-    const gradeCounts=new Map();
-    rows.forEach(r=>{const grade=String(r.grade||'').trim().toUpperCase();if(grade&&grade!=='UPLOADED')gradeCounts.set(grade,(gradeCounts.get(grade)||0)+1);});
-    const gradeEntries=[...gradeCounts.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
-    const hasGrades=gradeEntries.length>0;
-    $('#gradeEmpty').classList.toggle('hidden',hasGrades);
-    if(gradeChart)gradeChart.destroy();
-    gradeChart=new Chart(gradeCanvas,{
-      type:'doughnut',
-      data:{labels:gradeEntries.map(([g])=>g),datasets:[{data:gradeEntries.map(([,n])=>n),backgroundColor:['#df7738','#314d73','#6d9a83','#e8b46d','#8b91b0','#bd8d9c','#9aa8b6'],borderColor:'#fff',borderWidth:4,hoverOffset:5}]},
-      options:{responsive:true,maintainAspectRatio:false,cutout:'70%',plugins:{legend:{display:false},tooltip:{backgroundColor:'#1d304b',padding:10}}}
-    });
+    performanceChart=new Chart(performanceCanvas,{type:'line',data:{labels:semesters.map(([label])=>label),datasets:[{label:'Semester GPA',data:semesters.map(([,v])=>v.units?Number((v.points/v.units).toFixed(2)):null),borderColor:'#df7738',backgroundColor:'rgba(223,119,56,.13)',fill:true,tension:.38,pointRadius:4,pointHoverRadius:6,pointBackgroundColor:'#df7738',pointBorderColor:'#fff',pointBorderWidth:2,spanGaps:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1d304b',padding:11,displayColors:false,callbacks:{label:c=>' GPA: '+(c.parsed.y??'—')}}},scales:{x:{grid:{display:false},ticks:{color:'#8a94a2',font:{size:10},maxRotation:0,autoSkip:true}},y:{beginAtZero:true,suggestedMax:5,grid:{color:'rgba(30,48,75,.07)'},ticks:{color:'#8a94a2',font:{size:10},precision:1}}}}});
+    const gradeCounts=new Map();rows.forEach(r=>{const grade=String(r.grade||'').trim().toUpperCase();if(grade&&grade!=='UPLOADED')gradeCounts.set(grade,(gradeCounts.get(grade)||0)+1);});
+    const gradeEntries=[...gradeCounts.entries()].sort((a,b)=>a[0].localeCompare(b[0]));const hasGrades=gradeEntries.length>0;
+    $('#gradeEmpty').classList.toggle('hidden',hasGrades);if(gradeChart)gradeChart.destroy();
+    gradeChart=new Chart(gradeCanvas,{type:'doughnut',data:{labels:gradeEntries.map(([g])=>g),datasets:[{data:gradeEntries.map(([,n])=>n),backgroundColor:['#df7738','#314d73','#6d9a83','#e8b46d','#8b91b0','#bd8d9c','#9aa8b6'],borderColor:'#fff',borderWidth:4,hoverOffset:5}]},options:{responsive:true,maintainAspectRatio:false,cutout:'70%',plugins:{legend:{display:false},tooltip:{backgroundColor:'#1d304b',padding:10}}}});
     $('#gradeLegend').innerHTML=gradeEntries.map(([grade,count],i)=>'<span class="legend-item"><i class="legend-dot" style="background:'+['#df7738','#314d73','#6d9a83','#e8b46d','#8b91b0','#bd8d9c','#9aa8b6'][i%7]+'"></i>'+escapeHtml(grade)+' <b>'+count+'</b></span>').join('');
   }
-
   async function handleUpload(e){
     e.preventDefault();const file=$('#resultFile').files[0];if(!file)return;
     if(file.size>20*1024*1024){uploadMessage('That file is larger than 20 MB.','error');return;}
@@ -110,13 +97,17 @@
       $('#uploadForm').reset();$('#fileLabel').textContent='Choose a result document';uploadMessage('Upload complete. The document is saved privately; results still need to be entered and reviewed.','success');await refreshData();
     }catch(err){uploadMessage(err.message||'Upload failed. Please try again.','error');}
   }
-  // Shared departmental catalogue transcribed from the supplied course list.
-  // Only the designated administrator can seed or maintain this shared catalogue.
   const DEPARTMENT_COURSES = [
     ['PHY 101','General Physics I',2],['MTH 101','Elementary Mathematics I',2],['STA 111','Descriptive Statistics',3],['PHY 107','General Physics Practical',1],['CSC 101','Introduction to Computer Science',2],['CHM 101','General Chemistry I',2],['GST 111','Communication in English',2],['CHM 107','General Chemistry Practical',1],
     ['PHY 108','General Physics Practical II',1],['MTH 102','Elementary Mathematics II',2],['CSC 112','Computer Application and Software',2],['COS 102','Problem Solving',3],['MAT 116','Logic and Sets',2],['STA 112','Inference',2],['GST 121','Uses of Library',2],['PHY 102','General Physics II',2],['CHM 102','General Chemistry II',2],['GST 112','Nigeria Peoples and Culture',2],['CHM 108','General Chemistry Practical II',1],
     ['SEW 2151','Introduction to Software Engineering',2],['MTH 201','Mathematical Methods I',2],['EDU 205','Introduction to Online Learning',2],['CSC 224','System Analysis and Design',2],['COS 201','Computer Programming I',3],['CSC 203','Discrete Structures',2],['PHY 215','Modern Physics',3],['IFT 211','Digital Logic',2],
     ['CSC 222','Introduction to Computer Hardware',2],['GST 212','Philosophy',2],['ENV 202','Environmental Awareness',1],['COS 212','Structured Programming',2],['IFT 212','Computer Architecture',2],['CSC 264','Data Structures',2],['MTH 205','Linear Algebra',2],['ENT 211','Entrepreneurship',2],['PHY 202','Electric Circuits and Electronics',1],['MTH 202','Differential Equation',2],['CSC 202','Computer Programming',2],['GST-FPS 241','Applied Physical Sciences',1]
+  ];
+  const COURSE_GROUPS = [
+    {title:'100 Level · First Semester',codes:['PHY 101','MTH 101','STA 111','PHY 107','CSC 101','CHM 101','GST 111','CHM 107']},
+    {title:'100 Level · Second Semester',codes:['PHY 108','MTH 102','CSC 112','COS 102','MAT 116','STA 112','GST 121','PHY 102','CHM 102','GST 112','CHM 108']},
+    {title:'200 Level · First Semester',codes:['SEW 2151','MTH 201','EDU 205','CSC 224','COS 201','CSC 203','PHY 215','IFT 211']},
+    {title:'200 Level · Second Semester',codes:['CSC 222','GST 212','ENV 202','COS 212','IFT 212','CSC 264','MTH 205','ENT 211','PHY 202','MTH 202','CSC 202','GST-FPS 241']}
   ];
   async function seedDepartmentCourses(){
     if(!isAdmin||!currentUser)return;
@@ -131,8 +122,17 @@
   }
   async function loadCourses(){
     const {data,error}=await supabaseClient.from('courses').select('id,course_code,course_title,credit_units').order('course_code');
-    if(error){$('#courseList').textContent=error.message;return;}
-    $('#courseList').innerHTML=(data||[]).map(c=>`<div class="record-row"><div><strong>${escapeHtml(c.course_code)}</strong><small>${escapeHtml(c.course_title)}</small></div><b>${escapeHtml(c.credit_units)} units</b></div>`).join('')||'<p class="notice">No courses have been added yet.</p>';
+    if(error){$('#courseList').innerHTML='<p class="notice error">Could not load the course list: '+escapeHtml(error.message)+'</p>';return;}
+    const byCode=new Map((data||[]).map(c=>[String(c.course_code||'').trim().toUpperCase(),c]));
+    const knownCodes=new Set();
+    const groupsHtml=COURSE_GROUPS.map(group=>{
+      const rows=group.codes.map(code=>byCode.get(code.toUpperCase())).filter(Boolean);
+      rows.forEach(c=>knownCodes.add(String(c.course_code).toUpperCase()));
+      return '<section class="course-group"><div class="course-group-heading"><h3>'+escapeHtml(group.title)+'</h3><span>'+rows.length+' courses</span></div><div class="course-table-wrap"><table class="course-table"><thead><tr><th>Course code</th><th>Course title</th><th>Credit units</th></tr></thead><tbody>'+rows.map(c=>'<tr><td><strong>'+escapeHtml(c.course_code)+'</strong></td><td>'+escapeHtml(c.course_title)+'</td><td>'+escapeHtml(c.credit_units)+'</td></tr>').join('')+'</tbody></table></div>'+(rows.length?'':'<p class="course-empty">No courses in this group yet.</p>')+'</section>';
+    }).join('');
+    const extra=(data||[]).filter(c=>!knownCodes.has(String(c.course_code||'').toUpperCase()));
+    const extraHtml=extra.length?'<section class="course-group"><div class="course-group-heading"><h3>Other courses</h3><span>'+extra.length+' courses</span></div><div class="course-table-wrap"><table class="course-table"><thead><tr><th>Course code</th><th>Course title</th><th>Credit units</th></tr></thead><tbody>'+extra.map(c=>'<tr><td><strong>'+escapeHtml(c.course_code)+'</strong></td><td>'+escapeHtml(c.course_title)+'</td><td>'+escapeHtml(c.credit_units)+'</td></tr>').join('')+'</tbody></table></div></section>':'';
+    $('#courseList').innerHTML='<div class="course-list-summary"><strong>'+((data||[]).length)+' courses in the departmental catalogue</strong><span>Only the administrator can manage this list.</span></div>'+groupsHtml+extraHtml;
   }
   async function addCourse(e){
     e.preventDefault();if(!isAdmin)return;
