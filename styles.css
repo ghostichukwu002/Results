@@ -121,3 +121,22 @@ footer{font-size:9px;color:#8792a0}
 .stats-grid .stat:after{content:"";position:absolute;width:78px;height:78px;border-radius:50%;right:-35px;top:-38px;background:rgba(232,121,53,.055)}
 @media(max-width:850px){.analytics-grid{grid-template-columns:1fr}.grade-chart-wrap{height:205px}}
 @media(max-width:620px){.analytics-grid{gap:12px;margin:13px 0}.chart-panel{padding:18px}.chart-wrap{height:205px;margin-top:17px}.grade-chart-wrap{height:190px}.chart-tag{font-size:8px;padding:6px 8px}}
+
+
+/* Admin course catalogue */
+.course-list-summary{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;padding:15px 16px;margin:20px 0 22px;border:1px solid #f0e7de;border-radius:13px;background:#fffaf6}
+.course-list-summary strong{font-size:13px;color:var(--ink)}
+.course-list-summary span{font-size:11px;color:#8993a1}
+.course-group{margin:0 0 24px}
+.course-group-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.course-group-heading h3{margin:0;font:700 15px Manrope,sans-serif;color:var(--ink);letter-spacing:-.25px}
+.course-group-heading span{font-size:10px;font-weight:700;color:#bd5b24;background:#fff2e8;border-radius:30px;padding:6px 9px;white-space:nowrap}
+.course-table-wrap{width:100%;overflow-x:auto;border:1px solid #edf0f3;border-radius:12px}
+.course-table{width:100%;border-collapse:collapse;text-align:left;min-width:420px}
+.course-table th{padding:11px 13px;background:#f8f9fb;color:#788395;font-size:10px;text-transform:uppercase;letter-spacing:.55px;font-weight:800}
+.course-table td{padding:12px 13px;border-top:1px solid #f0f2f4;color:#4d5b6e;font-size:12px;line-height:1.45}
+.course-table td:first-child{color:var(--ink);white-space:nowrap}
+.course-table td:last-child,.course-table th:last-child{text-align:center;white-space:nowrap}
+.course-table tbody tr:hover{background:#fffaf6}
+.course-empty{padding:12px 14px;color:#929baa;font-size:12px;background:#fafbfc;border-radius:10px}
+@media(max-width:620px){.course-list-summary{align-items:flex-start;flex-direction:column;padding:13px}.course-group-heading h3{font-size:13px}.course-table th,.course-table td{padding:11px 10px}}
