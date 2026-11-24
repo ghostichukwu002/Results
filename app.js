@@ -3,6 +3,7 @@
   const authView = $('#authView'), appView = $('#appView');
   const ADMIN_EMAIL = 'okaforanointing37@gmail.com';
   let supabaseClient, currentUser, isAdmin = false, authMode = 'login';
+  let courseCache = [], gradeSettings = null;
   let performanceChart = null, gradeChart = null;
   const initials = name => (name || 'A').trim().split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -42,24 +43,26 @@
     $('#permissionTitle').textContent=isAdmin?'Course administrator + student':'Student access';
     $('#permissionCopy').textContent=isAdmin?'You can view and maintain the full departmental course list. Your own results remain private; admin access does not reveal another student’s grades or documents.':'You can upload and manage your own results, documents and academic history. Other users cannot access your records.';
     $('#studentAccessNote').classList.toggle('hidden',isAdmin);
-    if(isAdmin){await seedDepartmentCourses();await loadCourses();}
+    if(isAdmin){await seedDepartmentCourses();await loadCourses();await loadGradeSettings();}
+    await loadCourseLookup();
     await refreshData();
     if(isAdmin) navigate('courses');
   }
   async function refreshData(){
     if(!currentUser)return;
     const [{data:results,error:rErr},{data:docs,error:dErr}]=await Promise.all([
-      supabaseClient.from('results').select('id,course_code,course_title,credit_units,academic_session,semester,grade_point,grade,created_at').eq('user_id',currentUser.id).order('created_at',{ascending:false}),
+      supabaseClient.from('results').select('id,course_code,course_title,credit_units,academic_session,semester,assignment_score,exam_score,total_score,score,grade_point,grade,created_at').eq('user_id',currentUser.id).order('created_at',{ascending:false}),
       supabaseClient.from('uploaded_documents').select('id,file_name,academic_session,semester,created_at').eq('user_id',currentUser.id).order('created_at',{ascending:false})
     ]);
     if(rErr||dErr){console.error(rErr||dErr);return;}
     const rs=results||[],ds=docs||[];$('#courseCount').textContent=rs.length;$('#uploadCount').textContent=ds.length;
     const totalUnits=rs.reduce((a,r)=>a+Number(r.credit_units||0),0),points=rs.reduce((a,r)=>a+Number(r.credit_units||0)*Number(r.grade_point||0),0);
-    $('#cgpaValue').textContent=totalUnits? (points/totalUnits).toFixed(2):'—';
+    const cgpa=totalUnits?points/totalUnits:null;
+    $('#cgpaValue').textContent=cgpa===null?'—':cgpa.toFixed(2);
     renderCharts(rs);
-    const renderRows=arr=>arr.map(r=>`<div class="record-row"><div><strong>${escapeHtml(r.course_code||r.file_name)}</strong><small>${escapeHtml(r.course_title||((r.academic_session||'')+' · Semester '+(r.semester||'')))}</small></div><b>${escapeHtml(r.grade||'Uploaded')}</b></div>`).join('');
-    $('#recentResults').innerHTML=rs.length?renderRows(rs.slice(0,5)):'<div class="empty-state"><div class="empty-icon">▤</div><h3>Your academic story starts here</h3><p>Upload a result or add your courses to begin building your academic history.</p><button class="outline-btn" data-goto="uploads">Upload a result</button></div>';
-    $('#resultsList').innerHTML=rs.length?renderRows(rs):'<div class="empty-state"><div class="empty-icon">▤</div><h3>No results added yet</h3><p>Upload your result document to start your personal academic archive.</p><button class="outline-btn" data-goto="uploads">Upload a result</button></div>';
+    const renderRows=arr=>arr.map(r=>`<div class="record-row result-record"><div><strong>${escapeHtml(r.course_code)}</strong><small>${escapeHtml(r.course_title)} · ${escapeHtml(r.academic_session)} · ${Number(r.semester)===2?'Second':'First'} semester</small><small class="score-detail">Assignment ${r.assignment_score??'—'} · Exam ${r.exam_score??'—'} · Total ${r.total_score??r.score??'—'}</small></div><div class="result-grade"><b>${escapeHtml(r.grade||'Pending')}</b><small>${Number(r.grade_point||0).toFixed(1)} GP</small></div></div>`).join('');
+    $('#recentResults').innerHTML=rs.length?renderRows(rs.slice(0,5)):'<div class="empty-state"><div class="empty-icon">▤</div><h3>Your academic story starts here</h3><p>Enter a course code and add your first result.</p><button class="outline-btn" data-goto="uploads">Add a result</button></div>';
+    $('#resultsList').innerHTML=rs.length?renderRows(rs):'<div class="empty-state"><div class="empty-icon">▤</div><h3>No results added yet</h3><p>Enter a course code to add your first result.</p><button class="outline-btn" data-goto="uploads">Add a result</button></div>';
     $('#recentResults').querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>navigate(b.dataset.goto));
     $('#resultsList').querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>navigate(b.dataset.goto));
   }
@@ -116,12 +119,19 @@
     const known=new Set((existing||[]).map(c=>String(c.course_code||'').trim().toUpperCase()));
     const missing=DEPARTMENT_COURSES.filter(([code])=>!known.has(code.toUpperCase()));
     if(!missing.length)return;
-    const rows=missing.map(([course_code,course_title,credit_units])=>({course_code,course_title,credit_units,created_by:currentUser.id}));
+    const rows=missing.map(([course_code,course_title,credit_units])=>{const info=courseInfoFor(course_code);return {course_code,course_title,credit_units,level:info.level,semester:info.semester,created_by:currentUser.id};});
     const {error}=await supabaseClient.from('courses').insert(rows);
     if(error)console.error('Could not add the starter course catalogue:',error);
   }
+  function courseInfoFor(code){const normalized=String(code||'').trim().toUpperCase();for(const group of COURSE_GROUPS){if(group.codes.some(c=>c.toUpperCase()===normalized)){const level=group.title.startsWith('100')?'100 Level':'200 Level';const semester=group.title.includes('First')?1:2;return {level,semester};}}return {level:'',semester:''};}
+  async function loadCourseLookup(){
+    const {data,error}=await supabaseClient.from('courses').select('id,course_code,course_title,credit_units,level,semester').eq('is_active',true).order('course_code');
+    if(error){console.error('Course lookup failed:',error);return;}
+    courseCache=data||[];
+    $('#courseSuggestions').innerHTML=courseCache.map(c=>'<option value="'+escapeHtml(c.course_code)+'">'+escapeHtml(c.course_title)+' · '+escapeHtml(c.credit_units)+' units</option>').join('');
+  }
   async function loadCourses(){
-    const {data,error}=await supabaseClient.from('courses').select('id,course_code,course_title,credit_units').order('course_code');
+    const {data,error}=await supabaseClient.from('courses').select('id,course_code,course_title,credit_units,level,semester').order('course_code');
     if(error){$('#courseList').innerHTML='<p class="notice error">Could not load the course list: '+escapeHtml(error.message)+'</p>';return;}
     const byCode=new Map((data||[]).map(c=>[String(c.course_code||'').trim().toUpperCase(),c]));
     const knownCodes=new Set();
@@ -139,6 +149,82 @@
     const payload={course_code:$('#courseCode').value.trim().toUpperCase(),course_title:$('#courseTitle').value.trim(),credit_units:Number($('#courseUnits').value),created_by:currentUser.id};
     const {error}=await supabaseClient.from('courses').insert(payload);if(error){alert(error.message);return;}$('#courseForm').reset();$('#courseUnits').value='2';await loadCourses();
   }
+  function renderGradeRuleRows(boundaries=[]){
+    const byGrade=new Map(boundaries.map(b=>[String(b.grade).toUpperCase(),b]));
+    $('#gradeRuleRows').innerHTML=['A','B','C','D','E','F'].map(grade=>{const item=byGrade.get(grade)||{};return '<div class="grade-rule-row"><input aria-label="Grade label" class="rule-grade" value="'+grade+'" maxlength="3" required><input aria-label="Minimum score for '+grade+'" class="rule-min" type="number" min="0" step="0.01" value="'+(item.min??'')+'" placeholder="Minimum" '+(grade==='F'?'value="0" readonly':'required')+'><input aria-label="Grade point for '+grade+'" class="rule-point" type="number" min="0" step="0.01" value="'+(item.point??'')+'" placeholder="Point" '+(grade==='F'?'value="0" readonly':'required')+'></div>';}).join('');
+  }
+  async function loadGradeSettings(){
+    renderGradeRuleRows();
+    const {data,error}=await supabaseClient.from('grade_settings').select('id,assignment_max,exam_max,grade_boundaries').eq('id',1).maybeSingle();
+    if(error){$('#gradeSettingsMessage').textContent='Grading settings table is not ready. Run the E.M.A.C.O.T.S result-entry migration SQL first.';$('#gradeSettingsMessage').className='notice error';$('#gradeConfigNotice').textContent='The department grading setup is not yet connected. Ask the administrator to finish the setup.';return;}
+    gradeSettings=data||null;
+    if(gradeSettings){$('#assignmentMaximum').value=gradeSettings.assignment_max;$('#examMaximum').value=gradeSettings.exam_max;renderGradeRuleRows(gradeSettings.grade_boundaries||[]);$('#gradeSettingsMessage').textContent='Department grading rules are active.';$('#gradeSettingsMessage').className='notice success';}
+    updateScorePreview();
+  }
+  async function saveGradeSettings(e){
+    e.preventDefault();if(!isAdmin)return;
+    const assignmentMax=Number($('#assignmentMaximum').value),examMax=Number($('#examMaximum').value),totalMax=assignmentMax+examMax;
+    const rows=[...$('#gradeRuleRows').querySelectorAll('.grade-rule-row')];
+    const boundaries=rows.map(row=>({grade:row.querySelector('.rule-grade').value.trim().toUpperCase(),min:Number(row.querySelector('.rule-min').value),point:Number(row.querySelector('.rule-point').value)}));
+    if(!(assignmentMax>0&&examMax>0)){return gradeSettingsMessage('Assignment and examination maximums must both be greater than zero.','error');}
+    if(boundaries.some(b=>!b.grade||!Number.isFinite(b.min)||!Number.isFinite(b.point)||b.min<0||b.min>totalMax||b.point<0)){return gradeSettingsMessage('Check every grade label, minimum score and grade point.','error');}
+    if(new Set(boundaries.map(b=>b.grade)).size!==boundaries.length||new Set(boundaries.map(b=>b.min)).size!==boundaries.length){return gradeSettingsMessage('Grade labels and minimum scores must be unique.','error');}
+    if(!boundaries.some(b=>b.min===0)){return gradeSettingsMessage('Include a grade boundary beginning at 0.','error');}
+    boundaries.sort((a,b)=>b.min-a.min);
+    const {error}=await supabaseClient.from('grade_settings').upsert({id:1,assignment_max:assignmentMax,exam_max:examMax,grade_boundaries:boundaries,updated_by:currentUser.id,updated_at:new Date().toISOString()});
+    if(error)return gradeSettingsMessage(error.message,'error');
+    gradeSettings={assignment_max:assignmentMax,exam_max:examMax,grade_boundaries:boundaries};
+    gradeSettingsMessage('Grading rules saved. New results will use these rules.','success');updateScorePreview();
+  }
+  function gradeSettingsMessage(message,type=''){const el=$('#gradeSettingsMessage');el.textContent=message;el.className='notice '+type;}
+  function matchCourseCode(){
+    const code=$('#lookupCourseCode').value.trim().toUpperCase();$('#lookupCourseCode').value=code;
+    const course=courseCache.find(c=>String(c.course_code).toUpperCase()===code);
+    const panel=$('#courseMatch');
+    if(!course){panel.classList.add('hidden');$('#matchedCourseId').value='';updateScorePreview();return;}
+    const info=courseInfoFor(course.course_code);
+    $('#matchedCourseId').value=course.id;$('#matchedCourseTitle').textContent=course.course_title;$('#matchedCourseUnits').textContent=course.credit_units;
+    $('#matchedCourseLevel').textContent=course.level||info.level||'—';$('#matchedCourseSemester').textContent=Number(course.semester||info.semester)===2?'Second':'First';
+    panel.classList.remove('hidden');updateScorePreview();
+  }
+  function calculateGrade(total){
+    if(!gradeSettings||!Array.isArray(gradeSettings.grade_boundaries))return null;
+    const boundary=gradeSettings.grade_boundaries.find(b=>total>=Number(b.min));
+    return boundary?{grade:boundary.grade,point:Number(boundary.point)}:null;
+  }
+  function updateScorePreview(){
+    const assignment=Number($('#assignmentScore').value),exam=Number($('#examScore').value);
+    const maxA=Number(gradeSettings?.assignment_max||0),maxE=Number(gradeSettings?.exam_max||0),total=assignment+exam;
+    const valid=gradeSettings&&$('#assignmentScore').value!==''&&$('#examScore').value!==''&&assignment>=0&&exam>=0&&assignment<=maxA&&exam<=maxE;
+    const calculated=valid?calculateGrade(total):null;
+    $('#totalScorePreview').textContent=valid?total.toFixed(2)+' / '+(maxA+maxE):'— / '+(maxA+maxE||'—');
+    $('#gradePreview').textContent=calculated?.grade||'—';$('#pointPreview').textContent=calculated?calculated.point.toFixed(2):'—';
+    $('#assignmentScore').max=maxA||'';$('#examScore').max=maxE||'';
+    $('#assignmentScore').placeholder=maxA?'Out of '+maxA:'Maximum not set';$('#examScore').placeholder=maxE?'Out of '+maxE:'Maximum not set';
+    $('#saveManualResult').disabled=!gradeSettings||!$('#matchedCourseId').value||!calculated;
+    $('#gradeConfigNotice').textContent=gradeSettings?'Assignment maximum: '+maxA+' · Examination maximum: '+maxE+' · Total: '+(maxA+maxE):'The administrator must configure the official grading rules before results can be submitted.';
+  }
+  async function saveManualResult(e){
+    e.preventDefault();
+    if(!currentUser)return;
+    matchCourseCode();
+    const course=courseCache.find(c=>c.id===$('#matchedCourseId').value);
+    if(!course)return manualResultMessage('Enter a valid course code from the departmental catalogue.','error');
+    if(!gradeSettings)return manualResultMessage('The administrator has not configured the department grading rules yet.','error');
+    const assignment=Number($('#assignmentScore').value),exam=Number($('#examScore').value);
+    if($('#assignmentScore').value===''||$('#examScore').value===''||assignment<0||assignment>Number(gradeSettings.assignment_max)||exam<0||exam>Number(gradeSettings.exam_max))return manualResultMessage('Enter scores within the configured maximum marks.','error');
+    const total=assignment+exam,calculated=calculateGrade(total);
+    if(!calculated)return manualResultMessage('The total score does not match a configured grade boundary. Contact the administrator.','error');
+    const session=$('#manualSession').value.trim(),semester=Number($('#manualSemester').value);
+    if(!session||![1,2].includes(semester))return manualResultMessage('Choose the academic session and semester.','error');
+    const payload={user_id:currentUser.id,course_id:course.id,course_code:course.course_code,course_title:course.course_title,credit_units:Number(course.credit_units),academic_session:session,semester,assignment_score:assignment,exam_score:exam,total_score:total,score:total,grade:calculated.grade,grade_point:calculated.point,verification_status:'reviewed'};
+    $('#saveManualResult').disabled=true;manualResultMessage('Saving your result…');
+    const {error}=await supabaseClient.from('results').upsert(payload,{onConflict:'user_id,course_code,academic_session,semester'});
+    if(error){$('#saveManualResult').disabled=false;return manualResultMessage(error.message,'error');}
+    $('#manualResultForm').reset();$('#courseMatch').classList.add('hidden');$('#matchedCourseId').value='';$('#totalScorePreview').textContent='—';$('#gradePreview').textContent='—';$('#pointPreview').textContent='—';
+    manualResultMessage('Result saved. Your CGPA and charts have been updated.','success');await refreshData();$('#saveManualResult').disabled=false;
+  }
+  function manualResultMessage(message,type=''){const el=$('#manualResultMessage');el.textContent=message;el.className='notice '+type;}
   function navigate(page){
     if(page==='courses'&&!isAdmin){page='overview';}
     document.querySelectorAll('.page-section').forEach(el=>el.classList.add('hidden'));$('#page-'+page)?.classList.remove('hidden');
@@ -152,5 +238,9 @@
   $('#accountShortcut').onclick=()=>navigate('account');$('#signOutBtn').onclick=signOut;$('#accountSignOut').onclick=signOut;$('#menuBtn').onclick=()=>{const open=$('#sidebar').classList.toggle('open');$('#menuBtn').setAttribute('aria-expanded',String(open));$('#menuBtn').setAttribute('aria-label',open?'Close navigation menu':'Open navigation menu');};
   $('#uploadForm').addEventListener('submit',handleUpload);$('#resultFile').addEventListener('change',e=>$('#fileLabel').textContent=e.target.files[0]?.name||'Choose a result document');
   $('#courseForm').addEventListener('submit',addCourse);
+  $('#lookupCourseCode').addEventListener('input',matchCourseCode);$('#lookupCourseCode').addEventListener('change',matchCourseCode);
+  $('#assignmentScore').addEventListener('input',updateScorePreview);$('#examScore').addEventListener('input',updateScorePreview);
+  $('#manualResultForm').addEventListener('submit',saveManualResult);
+  $('#gradeSettingsForm').addEventListener('submit',saveGradeSettings);
   setAuthMode('login');init();
 })();
