@@ -83,7 +83,7 @@
     const hasPerformance=semesters.some(([,v])=>v.units>0);
     $('#performanceEmpty').classList.toggle('hidden',hasPerformance);
     if(performanceChart)performanceChart.destroy();
-    performanceChart=new Chart(performanceCanvas,{type:'line',data:{labels:semesters.map(([label])=>label),datasets:[{label:'Semester GPA',data:semesters.map(([,v])=>v.units?Number((v.points/v.units).toFixed(2)):null),borderColor:'#df7738',backgroundColor:'rgba(223,119,56,.13)',fill:true,tension:.38,pointRadius:4,pointHoverRadius:6,pointBackgroundColor:'#df7738',pointBorderColor:'#fff',pointBorderWidth:2,spanGaps:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1d304b',padding:11,displayColors:false,callbacks:{label:c=>' GPA: '+(c.parsed.y??'—')}}},scales:{x:{grid:{display:false},ticks:{color:'#8a94a2',font:{size:10},maxRotation:0,autoSkip:true}},y:{beginAtZero:true,suggestedMax:5,grid:{color:'rgba(30,48,75,.07)'},ticks:{color:'#8a94a2',font:{size:10},precision:1}}}}});
+    performanceChart=new Chart(performanceCanvas,{type:'line',data:{labels:semesters.map(([label])=>label),datasets:[{label:'Semester GPA',data:semesters.map(([,v])=>v.units?Number((v.points/v.units).toFixed(2)):null),borderColor:'#df7738',backgroundColor:'rgba(223,119,56,.13)',fill:true,tension:.38,pointRadius:4,pointHoverRadius:6,pointBackgroundColor:'#df7738',pointBorderColor:'#fff',pointBorderWidth:2,spanGaps:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1d304b',padding:11,displayColors:false,callbacks:{label:c=>' GPA: '+(c.parsed.y??'—')}}},scales:{x:{grid:{display:false},ticks:{color:'#8a94a2',font:{size:10},maxRotation:0,autoSkip:true}},y:{beginAtZero:true,suggestedMax:4,grid:{color:'rgba(30,48,75,.07)'},ticks:{color:'#8a94a2',font:{size:10},precision:1}}}}});
     const gradeCounts=new Map();rows.forEach(r=>{const grade=String(r.grade||'').trim().toUpperCase();if(grade&&grade!=='UPLOADED')gradeCounts.set(grade,(gradeCounts.get(grade)||0)+1);});
     const gradeEntries=[...gradeCounts.entries()].sort((a,b)=>a[0].localeCompare(b[0]));const hasGrades=gradeEntries.length>0;
     $('#gradeEmpty').classList.toggle('hidden',hasGrades);if(gradeChart)gradeChart.destroy();
@@ -156,15 +156,25 @@
     const payload={course_code:$('#courseCode').value.trim().toUpperCase(),course_title:$('#courseTitle').value.trim(),credit_units:Number($('#courseUnits').value),created_by:currentUser.id};
     const {error}=await supabaseClient.from('courses').insert(payload);if(error){alert(error.message);return;}$('#courseForm').reset();$('#courseUnits').value='2';await loadCourses();await loadCourseLookup();
   }
+  // Standard 4.0 grade scale used as the starting point. The administrator can adjust every value.
+  const DEFAULT_GRADE_SCALE=[
+    {grade:'A',min:70,point:4},
+    {grade:'B',min:60,point:3},
+    {grade:'C',min:50,point:2},
+    {grade:'D',min:45,point:1},
+    {grade:'E',min:40,point:0.5},
+    {grade:'F',min:0,point:0}
+  ];
+  const MAX_GRADE_POINT=4;
   function renderGradeRuleRows(boundaries=[]){
     // Use the saved grade labels when they exist, so custom labels (e.g. A+, B-) are not lost on save.
     const rows=boundaries.length
       ?[...boundaries].sort((a,b)=>Number(b.min)-Number(a.min)).map(b=>({grade:String(b.grade||'').toUpperCase(),min:b.min,point:b.point}))
-      :['A','B','C','D','E','F'].map(grade=>({grade}));
+      :DEFAULT_GRADE_SCALE.map(item=>({...item}));
     $('#gradeRuleRows').innerHTML=rows.map(item=>{
       const grade=item.grade,isF=grade==='F';
       const minValue=isF?0:(item.min??''),pointValue=isF?0:(item.point??'');
-      return '<div class="grade-rule-row"><input aria-label="Grade label" class="rule-grade" value="'+escapeHtml(grade)+'" maxlength="3" required><input aria-label="Minimum score for '+escapeHtml(grade)+'" class="rule-min" type="number" min="0" step="0.01" value="'+minValue+'" placeholder="Minimum"'+(isF?' readonly':' required')+'><input aria-label="Grade point for '+escapeHtml(grade)+'" class="rule-point" type="number" min="0" step="0.01" value="'+pointValue+'" placeholder="Point"'+(isF?' readonly':' required')+'></div>';
+      return '<div class="grade-rule-row"><input aria-label="Grade label" class="rule-grade" value="'+escapeHtml(grade)+'" maxlength="3" required><input aria-label="Minimum score for '+escapeHtml(grade)+'" class="rule-min" type="number" min="0" step="0.01" value="'+minValue+'" placeholder="Minimum"'+(isF?' readonly':' required')+'><input aria-label="Grade point for '+escapeHtml(grade)+'" class="rule-point" type="number" min="0" max="'+MAX_GRADE_POINT+'" step="0.01" value="'+pointValue+'" placeholder="Point (0.0–4.0)"'+(isF?' readonly':' required')+'></div>';
     }).join('');
   }
   async function loadGradeSettings(){
@@ -184,6 +194,7 @@
     // results.score is constrained to 0–100 in the database, so the combined maximum cannot exceed 100.
     if(totalMax>100){return gradeSettingsMessage('The assignment and examination maximums together cannot exceed 100.','error');}
     if(boundaries.some(b=>!b.grade||!Number.isFinite(b.min)||!Number.isFinite(b.point)||b.min<0||b.min>totalMax||b.point<0)){return gradeSettingsMessage('Check every grade label, minimum score and grade point.','error');}
+    if(boundaries.some(b=>b.point>MAX_GRADE_POINT)){return gradeSettingsMessage('Grade points must be on the 0.0 to 4.0 scale.','error');}
     if(new Set(boundaries.map(b=>b.grade)).size!==boundaries.length||new Set(boundaries.map(b=>b.min)).size!==boundaries.length){return gradeSettingsMessage('Grade labels and minimum scores must be unique.','error');}
     if(!boundaries.some(b=>b.min===0)){return gradeSettingsMessage('Include a grade boundary beginning at 0.','error');}
     boundaries.sort((a,b)=>b.min-a.min);
