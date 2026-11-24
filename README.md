@@ -13,7 +13,7 @@ A private, mobile-first academic results tracker for one department. Every perso
 - Vercel production hosting connected to this GitHub repository
 
 ## Supabase setup
-1. In Supabase SQL Editor, run the complete `supabase/schema.sql` file.
+1. In Supabase SQL Editor, run the complete `supabase/schema.sql` file. If the project is already set up, run `supabase/course-catalogue-permissions.sql` to grant the required table privileges for the admin course catalogue.
 2. In Authentication → URL Configuration, add your Vercel production URL to Site URL and Redirect URLs.
 3. In Authentication → Providers, enable Email. For a real deployment, keep email confirmation enabled.
 4. The browser uses only the Supabase project URL and publishable key from `config.js`. Never add a secret/service-role key to frontend files.
