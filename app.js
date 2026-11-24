@@ -43,7 +43,8 @@
     $('#permissionTitle').textContent=isAdmin?'Course administrator + student':'Student access';
     $('#permissionCopy').textContent=isAdmin?'You can view and maintain the full departmental course list. Your own results remain private; admin access does not reveal another student’s grades or documents.':'You can upload and manage your own results, documents and academic history. Other users cannot access your records.';
     $('#studentAccessNote').classList.toggle('hidden',isAdmin);
-    if(isAdmin){await seedDepartmentCourses();await loadCourses();await loadGradeSettings();}
+    if(isAdmin){await seedDepartmentCourses();await loadCourses();}
+    await loadGradeSettings();
     await loadCourseLookup();
     await refreshData();
     if(isAdmin) navigate('courses');
