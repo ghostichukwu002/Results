@@ -140,3 +140,47 @@ footer{font-size:9px;color:#8792a0}
 .course-table tbody tr:hover{background:#fffaf6}
 .course-empty{padding:12px 14px;color:#929baa;font-size:12px;background:#fafbfc;border-radius:10px}
 @media(max-width:620px){.course-list-summary{align-items:flex-start;flex-direction:column;padding:13px}.course-group-heading h3{font-size:13px}.course-table th,.course-table td{padding:11px 10px}}
+
+
+/* Smart manual result entry */
+.result-entry-panel{margin-bottom:16px}
+.result-form,.grade-settings-form{display:grid;gap:16px;margin-top:20px}
+.result-form>label,.result-form-grid label,.grade-settings-form label{display:grid;gap:8px;font-size:12px;font-weight:700;color:#34445a}
+.result-form input,.result-form select,.grade-settings-form input{width:100%;min-width:0;height:48px;padding:0 13px;border:1px solid #e5e4df;border-radius:11px;background:#fff;color:var(--ink);font:500 14px 'DM Sans',sans-serif}
+.result-form input:focus,.result-form select:focus,.grade-settings-form input:focus{outline:0;border-color:#d8895a;box-shadow:0 0 0 3px rgba(217,107,43,.12)}
+.result-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.course-match{display:grid;gap:13px;padding:16px;border:1px solid #dcebe1;border-radius:13px;background:linear-gradient(135deg,#f5fbf6,#fff)}
+.course-match>div:first-child{display:grid;gap:5px}
+.match-label{font-size:9px;font-weight:800;letter-spacing:1px;color:#4f8b68}
+.course-match strong{font-size:14px;color:var(--ink)}
+.match-meta{display:flex;flex-wrap:wrap;gap:9px 18px}
+.match-meta span{font-size:11px;color:#7b8795}
+.match-meta b{color:#34445a;margin-left:4px}
+.score-preview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:15px;border:1px solid #eee9e2;border-radius:13px;background:#fbfaf8}
+.score-preview>div{display:grid;gap:7px;min-width:0}
+.score-preview span{font-size:10px;color:#8792a0}
+.score-preview strong{font:800 19px Manrope,sans-serif;color:var(--ink);overflow-wrap:anywhere}
+.score-preview>div:nth-child(2) strong{color:#c35d25}
+.result-record{align-items:center}
+.result-record .score-detail{margin-top:4px;color:#8792a0;font-size:10px}
+.result-grade{display:grid;justify-items:end;gap:4px;white-space:nowrap}
+.result-grade b{font-size:15px;color:#c35d25}
+.result-grade small{font-size:10px;color:#8792a0}
+.document-upload-panel{margin-top:16px}
+.grade-settings-panel{margin-top:16px}
+.grade-rule-row{display:grid;grid-template-columns:.7fr 1.2fr 1.2fr;gap:9px;align-items:center;margin-top:8px}
+.grade-rule-row input{height:42px;padding:0 9px;font-size:12px}
+.grade-rule-head{padding:0 2px;color:#8993a1;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px}
+.grade-rule-head span{text-align:left}
+.grade-rule-row input[readonly]{background:#f4f3f0;color:#8a929c}
+.grade-rules-table{padding:14px;border:1px solid #eee9e2;border-radius:13px;background:#fff}
+#saveManualResult:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
+@media(max-width:620px){
+ .result-form-grid{grid-template-columns:1fr;gap:13px}
+ .score-preview{gap:7px;padding:12px}
+ .score-preview strong{font-size:16px}
+ .match-meta{gap:8px 12px}
+ .grade-rule-row{grid-template-columns:.65fr 1.1fr 1.1fr;gap:6px}
+ .grade-rule-row input{font-size:11px;padding:0 7px}
+ .grade-rule-head{font-size:8px}
+}
