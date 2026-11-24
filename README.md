@@ -8,15 +8,19 @@ A private, mobile-first academic results tracker for one department. Every perso
 - Private result-document uploads to Supabase Storage
 - Personal result list and CGPA calculation from saved course grades
 - Personal semester GPA trend and grade distribution charts (based only on the signed-in user's own saved grades)
-- Course catalogue visible to authenticated users; course management is admin-only
+- Course catalogue visible to authenticated users; course management and grading-rule configuration are admin-only
+- Smart manual result entry: course-code lookup fills course title and credit units, assignment/exam marks calculate total, grade and grade point
+- CGPA and semester performance charts refresh from each saved result
 - Responsive mobile-first interface
 - Vercel production hosting connected to this GitHub repository
 
 ## Supabase setup
-1. In Supabase SQL Editor, run the complete `supabase/schema.sql` file. If the project is already set up, run `supabase/course-catalogue-permissions.sql` to grant the required table privileges for the admin course catalogue.
-2. In Authentication → URL Configuration, add your Vercel production URL to Site URL and Redirect URLs.
-3. In Authentication → Providers, enable Email. For a real deployment, keep email confirmation enabled.
-4. The browser uses only the Supabase project URL and publishable key from `config.js`. Never add a secret/service-role key to frontend files.
+1. In Supabase SQL Editor, run the complete `supabase/schema.sql` file for a new project. For the existing E.M.A.C.O.T.S project, use the relevant additive migrations instead of rerunning the full schema.
+2. Run `supabase/course-catalogue-permissions.sql` if the existing course catalogue still reports a permission error.
+3. Run `supabase/smart-result-entry-migration.sql` to add assignment/exam score columns and the department grading-settings table for smart manual result entry.
+4. In Authentication → URL Configuration, add your Vercel production URL to Site URL and Redirect URLs.
+5. In Authentication → Providers, enable Email. For a real deployment, keep email confirmation enabled.
+6. The browser uses only the Supabase project URL and publishable key from `config.js`. Never add a secret/service-role key to frontend files.
 
 ## The only administrator account
 - The only administrator email is `okaforanointing37@gmail.com`.
