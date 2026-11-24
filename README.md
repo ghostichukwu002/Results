@@ -17,19 +17,18 @@ A private, mobile-first academic results tracker for one department. Every perso
 3. In Authentication → Providers, enable Email. For a real deployment, keep email confirmation enabled.
 4. The browser uses only the Supabase project URL and publishable key from `config.js`. Never add a secret/service-role key to frontend files.
 
-## Create your admin account
-1. Open the website and choose **Create account** using the email address you want as your admin login.
-2. Verify your email if confirmation is enabled, then sign in.
-3. Open **My account** and copy the Account ID.
-4. In Supabase SQL Editor, run the SQL shown in the account's admin setup note (it inserts only that user ID into `public.app_admins`).
-5. Sign out and sign back in. The Course catalogue section will appear.
+## The only administrator account
+- The only administrator email is `okaforanointing37@gmail.com`.
+- Create that account normally, verify the email if confirmation is enabled, and sign in.
+- The database automatically adds only that exact email to the private administrator allow-list when the account is created. If the account already exists, rerun `supabase/schema.sql` to synchronize the allow-list.
+- Every other email remains a student account. Public registration never offers an administrator option.
 
 Admin permission is limited to managing the shared departmental course catalogue. It does not grant access to another user's results, uploads, grades or transcript. An admin can access their own records as a normal user.
 
 ## Security notes
 - Row Level Security restricts profiles, results and document metadata to the signed-in owner.
 - The `result-documents` Storage bucket is private; files are stored under the owner's Auth UUID.
-- Public sign-up never allows a user to choose the admin role.
+- Public sign-up never allows a user to choose the admin role. The database checks the exact administrator email as well as the private allow-list; all other accounts are denied administrator permissions.
 - Do not upload real student information until the SQL schema has been run and the Supabase Auth settings have been checked.
 
 ## Current limitations
