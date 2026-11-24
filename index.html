@@ -2,15 +2,15 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#f7f8fa"><meta name="description" content="Your private academic records, organized in one place.">
-<title>Academic Results Hub</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<meta name="theme-color" content="#f7f8fa"><meta name="description" content="E.M.A.C.O.T.S — your private academic records, organized in one place.">
+<title>E.M.A.C.O.T.S</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
 <a class="skip-link" href="#mainContent">Skip to content</a>
 <div id="authView" class="auth-shell">
-  <div class="auth-brand"><span class="brand-mark">A</span><span>Academic<span class="brand-light">Hub</span></span></div>
+  <div class="auth-brand"><span class="brand-mark">E</span><span>E.M.A.C.O.T.S</span></div>
   <section class="auth-card">
     <div class="auth-intro"><p class="eyebrow">YOUR PRIVATE ACADEMIC SPACE</p><h1 id="authTitle">Welcome <em>back.</em></h1><p id="authSubtitle">Sign in to access your academic records.</p></div>
     <div class="auth-tabs"><button id="loginTab" class="tab active" type="button">Sign in</button><button id="signupTab" class="tab" type="button">Create account</button></div>
@@ -23,11 +23,11 @@
     </form>
     <p class="privacy-note"><span>⌑</span> Your academic records are private. Each account can access only its own information.</p>
   </section>
-  <p class="auth-foot">ACADEMIC RESULTS HUB · PRIVATE BY DESIGN</p>
+  <p class="auth-foot">E.M.A.C.O.T.S · PRIVATE BY DESIGN</p>
 </div>
 <div id="appView" class="app-shell hidden">
   <aside class="sidebar" id="sidebar">
-    <a class="brand" href="#"><span class="brand-mark">A</span><span>Academic<span class="brand-light">Hub</span></span></a>
+    <a class="brand" href="#"><span class="brand-mark">E</span><span>E.M.A.C.O.T.S</span></a>
     <div class="workspace-label">YOUR WORKSPACE</div>
     <nav class="nav" aria-label="Main navigation">
       <button class="nav-link active" data-page="overview"><span>▦</span> Overview</button>
@@ -44,6 +44,10 @@
       <section class="page-section" id="page-overview">
         <div class="welcome-row"><div><p class="eyebrow">ACADEMIC RECORDS, MADE SIMPLE</p><h1>Your journey.<br><em>Your progress.</em></h1><p class="subhead">Keep every course, semester and result organized from your first year to graduation.</p></div><div class="welcome-art"><div class="art-card card-back"></div><div class="art-card card-front"><span class="art-icon">▤</span><strong>Academic<br>history</strong><small>One personal archive</small><span class="art-line"></span><span class="art-line short"></span></div><span class="spark">✳</span></div></div>
         <div class="stats-grid"><article class="stat"><span class="stat-icon orange">▤</span><span class="stat-label">My courses</span><strong id="courseCount">0</strong><small>Courses in your records</small></article><article class="stat"><span class="stat-icon navy">⇧</span><span class="stat-label">My uploads</span><strong id="uploadCount">0</strong><small>Documents in your archive</small></article><article class="stat"><span class="stat-icon green">◷</span><span class="stat-label">Current CGPA</span><strong id="cgpaValue">—</strong><small>Calculated from saved grades</small></article></div>
+        <div class="analytics-grid">
+          <article class="panel chart-panel"><div class="panel-heading"><div><p class="eyebrow">PERFORMANCE OVER TIME</p><h2>Semester GPA trend</h2></div><span class="chart-tag">MY PROGRESS</span></div><div class="chart-wrap"><canvas id="performanceChart" aria-label="Your GPA by semester" role="img"></canvas><div class="chart-empty hidden" id="performanceEmpty">Your semester GPA trend will appear after grades are saved.</div></div></article>
+          <article class="panel chart-panel"><div class="panel-heading"><div><p class="eyebrow">GRADE BREAKDOWN</p><h2>My grade mix</h2></div><span class="chart-tag">MY GRADES</span></div><div class="grade-chart-wrap"><canvas id="gradeChart" aria-label="Distribution of your grades" role="img"></canvas><div class="chart-empty hidden" id="gradeEmpty">Your grade distribution will appear after grades are saved.</div></div><div class="grade-legend" id="gradeLegend"></div></article>
+        </div>
         <div class="content-grid"><article class="panel"><div class="panel-heading"><div><p class="eyebrow">YOUR ACADEMIC RECORD</p><h2>Recent results</h2></div><button class="text-btn" data-goto="results">View all →</button></div><div id="recentResults" class="empty-state"><div class="empty-icon">▤</div><h3>Your academic story starts here</h3><p>Upload a result or add your courses to begin building your academic history.</p><button class="outline-btn" data-goto="uploads">Upload a result</button></div></article>
         <article class="panel highlight-panel"><p class="eyebrow">A BETTER WAY TO TRACK PROGRESS</p><h2>Every semester,<br>one clear picture.</h2><p class="panel-copy">Your records stay tied to your account. No one else can browse your grades or documents.</p><div class="mini-progress"><span>PRIVATE RECORDS</span><span>OWNER ONLY</span></div></article></div>
       </section>
@@ -51,10 +55,10 @@
       <section class="page-section hidden" id="page-uploads"><div class="section-heading"><div><p class="eyebrow">DOCUMENT CENTRE</p><h1>Upload <em>results.</em></h1><p class="subhead">Securely store your semester result documents in your private account.</p></div></div><div class="panel upload-panel"><div class="panel-heading"><div><p class="eyebrow">PRIVATE DOCUMENT UPLOAD</p><h2>Add a result document</h2></div><span class="upload-symbol">⇧</span></div><form id="uploadForm"><label>Academic session<input id="sessionInput" required placeholder="e.g. 2025/2026"></label><label>Semester<select id="semesterInput" required><option value="">Choose semester</option><option value="1">First semester</option><option value="2">Second semester</option></select></label><label class="dropzone" for="resultFile"><span class="upload-cloud">⇧</span><strong id="fileLabel">Choose a result document</strong><small>PDF, JPG or PNG · Maximum 20 MB</small><input id="resultFile" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" required></label><button class="primary-btn full" type="submit">Upload securely</button><p id="uploadMessage" class="notice" role="status">Uploaded files are private and visible only to your account.</p></form></div></section>
       <section class="page-section hidden" id="page-courses"><div class="section-heading"><div><p class="eyebrow">DEPARTMENT COURSE LIST</p><h1>Course <em>catalogue.</em></h1><p class="subhead">Admin access is limited to maintaining this shared course list.</p></div></div><div class="panel"><form id="courseForm" class="course-form"><label>Course code<input id="courseCode" required placeholder="e.g. CSC 101"></label><label>Course title<input id="courseTitle" required placeholder="Introduction to..."></label><label>Credit units<input id="courseUnits" type="number" min="0.5" step="0.5" value="2" required></label><button class="primary-btn" type="submit">Add course</button></form><div id="courseList" class="record-list"></div></div></section>
       <section class="page-section hidden" id="page-account"><div class="section-heading"><div><p class="eyebrow">YOUR PROFILE & ACCESS</p><h1>My <em>account.</em></h1><p class="subhead">Your login identity, profile and account permissions.</p></div></div><div class="account-grid"><article class="panel account-card"><div class="account-avatar" id="accountAvatar">AR</div><h2 id="accountName">Your name</h2><p id="accountEmail" class="account-email"></p><span id="roleBadge" class="role-badge">Student account</span><div class="account-facts"><div><span>Account ID</span><code id="accountId"></code></div><div><span>Account status</span><strong>Verified session</strong></div></div><button id="accountSignOut" class="outline-btn full">Sign out</button></article><article class="panel"><p class="eyebrow">ACCOUNT PERMISSIONS</p><h2 id="permissionTitle">Student access</h2><p id="permissionCopy" class="panel-copy">You can upload and manage your own results, documents and academic history. Other users cannot access your records.</p><div id="studentAccessNote" class="access-note"><span aria-hidden="true">⌑</span><p>Administrative permissions are restricted to the designated administrator. Your academic records remain private to your account.</p></div></article></div></section>
-      <footer>ACADEMIC RESULTS HUB <span>Your academic records. Your account. Your control.</span></footer>
+      <footer>E.M.A.C.O.T.S <span>Your academic records. Your account. Your control.</span></footer>
     </section>
   </main>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script src="./config.js"></script><script src="./app.js"></script>
 </body></html>
