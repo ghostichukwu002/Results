@@ -17,14 +17,14 @@ language sql
 stable
 security definer
 set search_path = public, auth
-as $$
+as '
   select coalesce((
-    select lower(u.email) = 'okaforanointing37@gmail.com'
+    select lower(u.email) = ''okaforanointing37@gmail.com''
        and exists (select 1 from public.app_admins a where a.user_id = u.id)
     from auth.users u
     where u.id = auth.uid()
   ), false);
-$$;
+';
 
 revoke all on function public.is_app_admin() from public;
 grant execute on function public.is_app_admin() to authenticated;
