@@ -61,7 +61,10 @@
               <label>Academic session<input id="manualSession" required placeholder="e.g. 2025/2026"></label>
               <label>Semester<select id="manualSemester" required><option value="">Choose semester</option><option value="1">First semester</option><option value="2">Second semester</option></select></label>
             </div>
-            <label>Course code<input id="lookupCourseCode" required autocomplete="off" placeholder="Start typing e.g. CSC 101" list="courseSuggestions"><datalist id="courseSuggestions"></datalist></label>
+            <label class="course-search-label">Course code
+              <div class="course-search-wrap"><input id="lookupCourseCode" required autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Type PHY, CSC, MTH..." aria-autocomplete="list" aria-controls="courseDropdown" aria-expanded="false"><div id="courseDropdown" class="course-dropdown hidden" role="listbox" aria-label="Matching departmental courses"></div></div>
+              <small class="field-hint">Type a course prefix or code. Choose the correct course from the matching list.</small>
+            </label>
             <div id="courseMatch" class="course-match hidden" aria-live="polite"><div><span class="match-label">COURSE FOUND</span><strong id="matchedCourseTitle"></strong></div><div class="match-meta"><span>Credit units <b id="matchedCourseUnits">—</b></span><span>Level <b id="matchedCourseLevel">—</b></span><span>Semester <b id="matchedCourseSemester">—</b></span></div></div>
             <input id="matchedCourseId" type="hidden">
             <div class="result-form-grid">
