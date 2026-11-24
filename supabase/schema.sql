@@ -16,12 +16,15 @@ returns boolean
 language sql
 stable
 security definer
-set search_path = public
-as $$
-  select exists (
-    select 1 from public.app_admins a where a.user_id = auth.uid()
-  );
-$$;
+set search_path = public, auth
+as $
+  select coalesce((
+    select lower(u.email) = 'okaforanointing37@gmail.com'
+       and exists (select 1 from public.app_admins a where a.user_id = u.id)
+    from auth.users u
+    where u.id = auth.uid()
+  ), false);
+$;
 
 revoke all on function public.is_app_admin() from public;
 grant execute on function public.is_app_admin() to authenticated;
@@ -47,6 +50,14 @@ begin
     coalesce(new.raw_user_meta_data ->> 'full_name', new.raw_user_meta_data ->> 'name', '')
   )
   on conflict (id) do nothing;
+
+  -- Only this exact email receives the administrator allow-list entry.
+  if lower(coalesce(new.email, '')) = 'okaforanointing37@gmail.com' then
+    insert into public.app_admins (user_id)
+    values (new.id)
+    on conflict (user_id) do nothing;
+  end if;
+
   return new;
 end;
 $$;
@@ -160,7 +171,7 @@ using (id = auth.uid())
 with check (id = auth.uid());
 
 -- No client-side access to the admin membership list.
-revoke all on public.app_admins from anon, authenticated;
+revoke all on public.app_admins from public, anon, authenticated;
 
 drop policy if exists "Authenticated users can read active courses" on public.courses;
 create policy "Authenticated users can read active courses"
@@ -281,6 +292,19 @@ using (
 -- insert into public.app_admins (user_id) values ('YOUR-AUTH-USER-UUID')
 -- on conflict (user_id) do nothing;
 
+
+-- Enforce a single administrator identity. This also repairs any old/manual entries.
+delete from public.app_admins a
+where not exists (
+  select 1 from auth.users u
+  where u.id = a.user_id
+    and lower(u.email) = 'okaforanointing37@gmail.com'
+);
+insert into public.app_admins (user_id)
+select u.id
+from auth.users u
+where lower(u.email) = 'okaforanointing37@gmail.com'
+on conflict (user_id) do nothing;
 
 -- Safe RPC: signed-in users can check only their own course-admin permission.
 create or replace function public.current_user_is_admin()
