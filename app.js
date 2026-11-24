@@ -148,7 +148,7 @@
   async function addCourse(e){
     e.preventDefault();if(!isAdmin)return;
     const payload={course_code:$('#courseCode').value.trim().toUpperCase(),course_title:$('#courseTitle').value.trim(),credit_units:Number($('#courseUnits').value),created_by:currentUser.id};
-    const {error}=await supabaseClient.from('courses').insert(payload);if(error){alert(error.message);return;}$('#courseForm').reset();$('#courseUnits').value='2';await loadCourses();
+    const {error}=await supabaseClient.from('courses').insert(payload);if(error){alert(error.message);return;}$('#courseForm').reset();$('#courseUnits').value='2';await loadCourses();await loadCourseLookup();
   }
   function renderGradeRuleRows(boundaries=[]){
     const byGrade=new Map(boundaries.map(b=>[String(b.grade).toUpperCase(),b]));
