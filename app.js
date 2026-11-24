@@ -62,6 +62,7 @@
     const totalUnits=rs.reduce((a,r)=>a+Number(r.credit_units||0),0),points=rs.reduce((a,r)=>a+Number(r.credit_units||0)*Number(r.grade_point||0),0);
     const cgpa=totalUnits?points/totalUnits:null;
     $('#cgpaValue').textContent=cgpa===null?'—':cgpa.toFixed(2);
+    $('#cgpaClass').textContent=cgpa===null?'Calculated from saved grades':degreeClass(cgpa);
     renderCharts(rs);
     const renderRows=arr=>arr.map(r=>`<div class="record-row result-record"><div><strong>${escapeHtml(r.course_code)}</strong><small>${escapeHtml(r.course_title)} · ${escapeHtml(r.academic_session)} · ${Number(r.semester)===2?'Second':'First'} semester</small><small class="score-detail">Assignment ${r.assignment_score??'—'} · Exam ${r.exam_score??'—'} · Total ${r.total_score??r.score??'—'}</small></div><div class="result-grade"><b>${escapeHtml(r.grade||'Pending')}</b><small>${Number(r.grade_point||0).toFixed(1)} GP</small></div></div>`).join('');
     $('#recentResults').innerHTML=rs.length?renderRows(rs.slice(0,5)):'<div class="empty-state"><div class="empty-icon">▤</div><h3>Your academic story starts here</h3><p>Enter a course code and add your first result.</p><button class="outline-btn" data-goto="uploads">Add a result</button></div>';
@@ -83,7 +84,7 @@
     const hasPerformance=semesters.some(([,v])=>v.units>0);
     $('#performanceEmpty').classList.toggle('hidden',hasPerformance);
     if(performanceChart)performanceChart.destroy();
-    performanceChart=new Chart(performanceCanvas,{type:'line',data:{labels:semesters.map(([label])=>label),datasets:[{label:'Semester GPA',data:semesters.map(([,v])=>v.units?Number((v.points/v.units).toFixed(2)):null),borderColor:'#df7738',backgroundColor:'rgba(223,119,56,.13)',fill:true,tension:.38,pointRadius:4,pointHoverRadius:6,pointBackgroundColor:'#df7738',pointBorderColor:'#fff',pointBorderWidth:2,spanGaps:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1d304b',padding:11,displayColors:false,callbacks:{label:c=>' GPA: '+(c.parsed.y??'—')}}},scales:{x:{grid:{display:false},ticks:{color:'#8a94a2',font:{size:10},maxRotation:0,autoSkip:true}},y:{beginAtZero:true,suggestedMax:4,grid:{color:'rgba(30,48,75,.07)'},ticks:{color:'#8a94a2',font:{size:10},precision:1}}}}});
+    performanceChart=new Chart(performanceCanvas,{type:'line',data:{labels:semesters.map(([label])=>label),datasets:[{label:'Semester GPA',data:semesters.map(([,v])=>v.units?Number((v.points/v.units).toFixed(2)):null),borderColor:'#df7738',backgroundColor:'rgba(223,119,56,.13)',fill:true,tension:.38,pointRadius:4,pointHoverRadius:6,pointBackgroundColor:'#df7738',pointBorderColor:'#fff',pointBorderWidth:2,spanGaps:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1d304b',padding:11,displayColors:false,callbacks:{label:c=>' GPA: '+(c.parsed.y??'—')}}},scales:{x:{grid:{display:false},ticks:{color:'#8a94a2',font:{size:10},maxRotation:0,autoSkip:true}},y:{beginAtZero:true,suggestedMax:5,grid:{color:'rgba(30,48,75,.07)'},ticks:{color:'#8a94a2',font:{size:10},precision:1}}}}});
     const gradeCounts=new Map();rows.forEach(r=>{const grade=String(r.grade||'').trim().toUpperCase();if(grade&&grade!=='UPLOADED')gradeCounts.set(grade,(gradeCounts.get(grade)||0)+1);});
     const gradeEntries=[...gradeCounts.entries()].sort((a,b)=>a[0].localeCompare(b[0]));const hasGrades=gradeEntries.length>0;
     $('#gradeEmpty').classList.toggle('hidden',hasGrades);if(gradeChart)gradeChart.destroy();
@@ -156,16 +157,27 @@
     const payload={course_code:$('#courseCode').value.trim().toUpperCase(),course_title:$('#courseTitle').value.trim(),credit_units:Number($('#courseUnits').value),created_by:currentUser.id};
     const {error}=await supabaseClient.from('courses').insert(payload);if(error){alert(error.message);return;}$('#courseForm').reset();$('#courseUnits').value='2';await loadCourses();await loadCourseLookup();
   }
-  // Standard 4.0 grade scale used as the starting point. The administrator can adjust every value.
+  // Standard 5.0 grade scale used as the starting point. The administrator can adjust every value.
   const DEFAULT_GRADE_SCALE=[
-    {grade:'A',min:70,point:4},
-    {grade:'B',min:60,point:3},
-    {grade:'C',min:50,point:2},
-    {grade:'D',min:45,point:1},
-    {grade:'E',min:40,point:0.5},
+    {grade:'A',min:70,point:5},
+    {grade:'B',min:60,point:4},
+    {grade:'C',min:50,point:3},
+    {grade:'D',min:45,point:2},
+    {grade:'E',min:40,point:1},
     {grade:'F',min:0,point:0}
   ];
-  const MAX_GRADE_POINT=4;
+  const MAX_GRADE_POINT=5;
+  // Degree classification bands on the 5.0 CGPA scale.
+  function degreeClass(cgpa){
+    if(cgpa===null)return 'Calculated from saved grades';
+    const c=Math.round(cgpa*100)/100;
+    if(c>=4.5)return 'First Class';
+    if(c>=3.5)return 'Second Class Upper';
+    if(c>=2.4)return 'Second Class Lower';
+    if(c>=1.5)return 'Third Class';
+    if(c>=1.0)return 'Pass';
+    return 'Below minimum graduation CGPA';
+  }
   function renderGradeRuleRows(boundaries=[]){
     // Use the saved grade labels when they exist, so custom labels (e.g. A+, B-) are not lost on save.
     const rows=boundaries.length
@@ -174,7 +186,7 @@
     $('#gradeRuleRows').innerHTML=rows.map(item=>{
       const grade=item.grade,isF=grade==='F';
       const minValue=isF?0:(item.min??''),pointValue=isF?0:(item.point??'');
-      return '<div class="grade-rule-row"><input aria-label="Grade label" class="rule-grade" value="'+escapeHtml(grade)+'" maxlength="3" required><input aria-label="Minimum score for '+escapeHtml(grade)+'" class="rule-min" type="number" min="0" step="0.01" value="'+minValue+'" placeholder="Minimum"'+(isF?' readonly':' required')+'><input aria-label="Grade point for '+escapeHtml(grade)+'" class="rule-point" type="number" min="0" max="'+MAX_GRADE_POINT+'" step="0.01" value="'+pointValue+'" placeholder="Point (0.0–4.0)"'+(isF?' readonly':' required')+'></div>';
+      return '<div class="grade-rule-row"><input aria-label="Grade label" class="rule-grade" value="'+escapeHtml(grade)+'" maxlength="3" required><input aria-label="Minimum score for '+escapeHtml(grade)+'" class="rule-min" type="number" min="0" step="0.01" value="'+minValue+'" placeholder="Minimum"'+(isF?' readonly':' required')+'><input aria-label="Grade point for '+escapeHtml(grade)+'" class="rule-point" type="number" min="0" max="'+MAX_GRADE_POINT+'" step="0.01" value="'+pointValue+'" placeholder="Point (0.0–5.0)"'+(isF?' readonly':' required')+'></div>';
     }).join('');
   }
   async function loadGradeSettings(){
@@ -194,7 +206,7 @@
     // results.score is constrained to 0–100 in the database, so the combined maximum cannot exceed 100.
     if(totalMax>100){return gradeSettingsMessage('The assignment and examination maximums together cannot exceed 100.','error');}
     if(boundaries.some(b=>!b.grade||!Number.isFinite(b.min)||!Number.isFinite(b.point)||b.min<0||b.min>totalMax||b.point<0)){return gradeSettingsMessage('Check every grade label, minimum score and grade point.','error');}
-    if(boundaries.some(b=>b.point>MAX_GRADE_POINT)){return gradeSettingsMessage('Grade points must be on the 0.0 to 4.0 scale.','error');}
+    if(boundaries.some(b=>b.point>MAX_GRADE_POINT)){return gradeSettingsMessage('Grade points must be on the 0.0 to 5.0 scale.','error');}
     if(new Set(boundaries.map(b=>b.grade)).size!==boundaries.length||new Set(boundaries.map(b=>b.min)).size!==boundaries.length){return gradeSettingsMessage('Grade labels and minimum scores must be unique.','error');}
     if(!boundaries.some(b=>b.min===0)){return gradeSettingsMessage('Include a grade boundary beginning at 0.','error');}
     boundaries.sort((a,b)=>b.min-a.min);
