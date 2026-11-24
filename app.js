@@ -157,7 +157,7 @@
   async function loadGradeSettings(){
     renderGradeRuleRows();
     const {data,error}=await supabaseClient.from('grade_settings').select('id,assignment_max,exam_max,grade_boundaries').eq('id',1).maybeSingle();
-    if(error){$('#gradeSettingsMessage').textContent='Grading settings table is not ready. Run the E.M.A.C.O.T.S result-entry migration SQL first.';$('#gradeSettingsMessage').className='notice error';$('#gradeConfigNotice').textContent='The department grading setup is not yet connected. Ask the administrator to finish the setup.';return;}
+    if(error){$('#gradeSettingsMessage').textContent='Grading settings table is not ready. Run the E.M.A.C.O.T.S result-entry migration SQL first.';$('#gradeSettingsMessage').className='notice error';$('#gradeConfigNotice').textContent='The department grading setup is not yet connected. Ask the administrator to finish the setup.';updateScorePreview();return;}
     gradeSettings=data||null;
     if(gradeSettings){$('#assignmentMaximum').value=gradeSettings.assignment_max;$('#examMaximum').value=gradeSettings.exam_max;renderGradeRuleRows(gradeSettings.grade_boundaries||[]);$('#gradeSettingsMessage').textContent='Department grading rules are active.';$('#gradeSettingsMessage').className='notice success';}
     updateScorePreview();
