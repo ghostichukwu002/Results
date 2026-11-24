@@ -42,6 +42,7 @@
     $('#permissionTitle').textContent=isAdmin?'Course administrator + student':'Student access';
     $('#permissionCopy').textContent=isAdmin?'You can maintain the shared departmental course catalogue. Your own results remain private, just like every other user’s. Admin access does not let you view another person’s grades or documents.':'You can upload and manage your own results, documents and academic history. Other users cannot access your records.';
     $('#studentAccessNote').classList.toggle('hidden',isAdmin);
+    if(isAdmin) await seedDepartmentCourses();
     await refreshData();
   }
   async function refreshData(){
@@ -108,6 +109,25 @@
       if(rowError){await supabaseClient.storage.from('result-documents').remove([path]);throw rowError;}
       $('#uploadForm').reset();$('#fileLabel').textContent='Choose a result document';uploadMessage('Upload complete. The document is saved privately; results still need to be entered and reviewed.','success');await refreshData();
     }catch(err){uploadMessage(err.message||'Upload failed. Please try again.','error');}
+  }
+  // Shared departmental catalogue transcribed from the supplied course list.
+  // Only the designated administrator can seed or maintain this shared catalogue.
+  const DEPARTMENT_COURSES = [
+    ['PHY 101','General Physics I',2],['MTH 101','Elementary Mathematics I',2],['STA 111','Descriptive Statistics',3],['PHY 107','General Physics Practical',1],['CSC 101','Introduction to Computer Science',2],['CHM 101','General Chemistry I',2],['GST 111','Communication in English',2],['CHM 107','General Chemistry Practical',1],
+    ['PHY 108','General Physics Practical II',1],['MTH 102','Elementary Mathematics II',2],['CSC 112','Computer Application and Software',2],['COS 102','Problem Solving',3],['MAT 116','Logic and Sets',2],['STA 112','Inference',2],['GST 121','Uses of Library',2],['PHY 102','General Physics II',2],['CHM 102','General Chemistry II',2],['GST 112','Nigeria Peoples and Culture',2],['CHM 108','General Chemistry Practical II',1],
+    ['SEW 2151','Introduction to Software Engineering',2],['MTH 201','Mathematical Methods I',2],['EDU 205','Introduction to Online Learning',2],['CSC 224','System Analysis and Design',2],['COS 201','Computer Programming I',3],['CSC 203','Discrete Structures',2],['PHY 215','Modern Physics',3],['IFT 211','Digital Logic',2],
+    ['CSC 222','Introduction to Computer Hardware',2],['GST 212','Philosophy',2],['ENV 202','Environmental Awareness',1],['COS 212','Structured Programming',2],['IFT 212','Computer Architecture',2],['CSC 264','Data Structures',2],['MTH 205','Linear Algebra',2],['ENT 211','Entrepreneurship',2],['PHY 202','Electric Circuits and Electronics',1],['MTH 202','Differential Equation',2],['CSC 202','Computer Programming',2],['GST-FPS 241','Applied Physical Sciences',1]
+  ];
+  async function seedDepartmentCourses(){
+    if(!isAdmin||!currentUser)return;
+    const {data:existing,error:readError}=await supabaseClient.from('courses').select('course_code');
+    if(readError){console.error('Could not check the course catalogue:',readError);return;}
+    const known=new Set((existing||[]).map(c=>String(c.course_code||'').trim().toUpperCase()));
+    const missing=DEPARTMENT_COURSES.filter(([code])=>!known.has(code.toUpperCase()));
+    if(!missing.length)return;
+    const rows=missing.map(([course_code,course_title,credit_units])=>({course_code,course_title,credit_units,created_by:currentUser.id}));
+    const {error}=await supabaseClient.from('courses').insert(rows);
+    if(error)console.error('Could not add the starter course catalogue:',error);
   }
   async function loadCourses(){
     const {data,error}=await supabaseClient.from('courses').select('id,course_code,course_title,credit_units').order('course_code');
