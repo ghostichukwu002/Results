@@ -280,3 +280,17 @@ using (
 -- administrator by running this manually in SQL Editor (replace with their Auth UID):
 -- insert into public.app_admins (user_id) values ('YOUR-AUTH-USER-UUID')
 -- on conflict (user_id) do nothing;
+
+
+-- Safe RPC: signed-in users can check only their own course-admin permission.
+create or replace function public.current_user_is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.is_app_admin();
+$$;
+revoke all on function public.current_user_is_admin() from public;
+grant execute on function public.current_user_is_admin() to authenticated;
