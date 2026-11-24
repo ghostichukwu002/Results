@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f8fa">
+  <meta name="description" content="Academic Results Hub — private academic records and results tracking.">
+  <title>Academic Results Hub</title><link rel="stylesheet" href="./styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="#"><span class="brand-mark">A</span><span>Academic<span class="brand-light">Hub</span></span></a>
+      <div class="workspace-label">WORKSPACE</div>
+      <nav class="nav">
+        <a class="nav-link active" href="#overview"><span>▦</span> Overview</a>
+        <a class="nav-link" href="#students"><span>♙</span> Students</a>
+        <a class="nav-link" href="#uploads"><span>⇧</span> Result uploads</a>
+        <a class="nav-link" href="#reports"><span>▤</span> Reports</a>
+      </nav>
+      <div class="sidebar-bottom"><div class="private-note"><span class="lock">⌑</span><div><strong>Private workspace</strong><small>Your records stay protected.</small></div></div><div class="profile-mini"><div class="avatar">AR</div><div><strong>Workspace admin</strong><small>Administrator</small></div><span class="dots">•••</span></div></div>
+    </aside>
+    <main class="main">
+      <header class="topbar"><button class="menu-btn" id="menuBtn" aria-label="Open menu">☰</button><div class="breadcrumb">Workspace <span>/</span> Overview</div><div class="top-actions"><span class="secure-pill"><i></i> Private workspace</span><div class="avatar small">AR</div></div></header>
+      <section class="page" id="overview">
+        <div class="welcome-row"><div><p class="eyebrow">ACADEMIC RECORDS MANAGER</p><h1>Your academic records,<br><em>all in one place.</em></h1><p class="subhead">Keep every semester, course and result organized from your first year to graduation.</p></div><div class="welcome-art"><div class="art-card card-back"></div><div class="art-card card-front"><span class="art-icon">▤</span><strong>Academic<br>history</strong><small>Organized by semester</small><span class="art-line"></span><span class="art-line short"></span></div><span class="spark">✳</span></div></div>
+        <div class="stats-grid"><article class="stat"><span class="stat-icon orange">♙</span><span class="stat-label">Students</span><strong id="studentCount">—</strong><small>Registered profiles</small></article><article class="stat"><span class="stat-icon navy">▤</span><span class="stat-label">Results uploaded</span><strong id="resultCount">—</strong><small>Documents in your archive</small></article><article class="stat"><span class="stat-icon green">✓</span><span class="stat-label">Verified records</span><strong id="verifiedCount">—</strong><small>Reviewed and approved</small></article></div>
+        <section class="content-grid" id="students"><article class="panel students-panel"><div class="panel-heading"><div><p class="eyebrow">YOUR DIRECTORY</p><h2>Students</h2></div><button class="primary-btn" id="addStudentBtn">＋ Add student</button></div><div class="search-wrap"><span>⌕</span><input id="studentSearch" type="search" placeholder="Search by name or matric number..." aria-label="Search students"></div><div class="empty-state" id="studentEmpty"><div class="empty-icon">♙</div><h3>Your directory starts here</h3><p>Add a student profile to begin organizing their academic history.</p><button class="outline-btn" id="emptyAddBtn">Add your first student</button></div><div class="student-list" id="studentList"></div></article>
+        <article class="panel upload-panel" id="uploads"><div class="panel-heading"><div><p class="eyebrow">DOCUMENT CENTRE</p><h2>Upload results</h2></div><span class="upload-symbol">⇧</span></div><p class="panel-copy">Add a result document and assign it to the correct student, session and semester.</p><label class="dropzone" for="resultFile"><span class="upload-cloud">⇧</span><strong>Choose a result document</strong><small>PDF, JPG or PNG · private upload</small><input id="resultFile" type="file" accept=".pdf,.png,.jpg,.jpeg"></label><p class="helper" id="fileName">Documents will require review before results are marked verified.</p><div class="workflow"><span>01 <b>Upload</b></span><span>02 <b>Review</b></span><span>03 <b>Save</b></span></div></article></section>
+        <section class="panel bottom-panel" id="reports"><div><p class="eyebrow">ACADEMIC REPORTS</p><h2>Ready when your records are</h2><p class="panel-copy">Generate a semester summary or a complete academic report after results have been added and verified.</p></div><button class="outline-btn" disabled>PDF reports · Coming soon</button></section>
+        <footer>ACADEMIC RESULTS HUB <span>Private academic records workspace</span></footer>
+      </section>
+    </main>
+  </div>
+  <dialog id="studentDialog"><form method="dialog" id="studentForm"><div class="dialog-head"><div><p class="eyebrow">NEW PROFILE</p><h2>Add a student</h2></div><button class="icon-btn" value="cancel" aria-label="Close">×</button></div><label>Full name<input name="fullName" required placeholder="Enter student's full name"></label><label>Matriculation number<input name="matricNo" placeholder="Enter matric number"></label><label>Department<input name="department" placeholder="Department"></label><label>Institution<input name="institution" placeholder="University or institution"></label><button class="primary-btn full" type="submit">Create profile</button><p class="dialog-note">Prototype only: connect the database before storing real student information.</p></form></dialog>
+  <script src="./app.js"></script>
+</body></html>
