@@ -129,7 +129,7 @@
     const {data,error}=await supabaseClient.from('courses').select('id,course_code,course_title,credit_units,level,semester').eq('is_active',true).order('course_code');
     if(error){console.error('Course lookup failed:',error);return;}
     courseCache=data||[];
-    $('#courseSuggestions').innerHTML=courseCache.map(c=>'<option value="'+escapeHtml(c.course_code)+'">'+escapeHtml(c.course_title)+' · '+escapeHtml(c.credit_units)+' units</option>').join('');
+    renderCourseDropdown('');
   }
   async function loadCourses(){
     const {data,error}=await supabaseClient.from('courses').select('id,course_code,course_title,credit_units,level,semester').order('course_code');
@@ -178,15 +178,40 @@
     gradeSettingsMessage('Grading rules saved. New results will use these rules.','success');updateScorePreview();
   }
   function gradeSettingsMessage(message,type=''){const el=$('#gradeSettingsMessage');el.textContent=message;el.className='notice '+type;}
-  function matchCourseCode(){
-    const code=$('#lookupCourseCode').value.trim().toUpperCase();$('#lookupCourseCode').value=code;
-    const course=courseCache.find(c=>String(c.course_code).toUpperCase()===code);
-    const panel=$('#courseMatch');
-    if(!course){panel.classList.add('hidden');$('#matchedCourseId').value='';updateScorePreview();return;}
+  function renderCourseDropdown(query){
+    const dropdown=$('#courseDropdown');if(!dropdown)return;
+    const q=String(query||'').trim().toUpperCase();
+    const matches=!q?[]:courseCache.filter(c=>String(c.course_code||'').toUpperCase().startsWith(q)||String(c.course_title||'').toUpperCase().includes(q)).slice(0,12);
+    if(!q||!matches.length){dropdown.innerHTML=q?'<div class="course-dropdown-empty">No matching course. Check the code or ask the administrator to add it.</div>':'';dropdown.classList.toggle('hidden',!q);$('#lookupCourseCode').setAttribute('aria-expanded',String(Boolean(q&&matches.length)));return;}
+    dropdown.innerHTML=matches.map((c,i)=>'<button type="button" class="course-option" role="option" aria-selected="false" data-course-id="'+escapeHtml(c.id)+'" data-index="'+i+'"><span class="course-option-main"><strong>'+escapeHtml(c.course_code)+'</strong><small>'+escapeHtml(c.course_title)+'</small></span><span class="course-option-units">'+escapeHtml(c.credit_units)+' units</span></button>').join('');
+    dropdown.classList.remove('hidden');$('#lookupCourseCode').setAttribute('aria-expanded','true');
+    dropdown.querySelectorAll('[data-course-id]').forEach(button=>button.addEventListener('click',()=>selectCourse(button.dataset.courseId)));
+  }
+  function selectCourse(id){
+    const course=courseCache.find(c=>String(c.id)===String(id));if(!course)return;
+    $('#lookupCourseCode').value=course.course_code;
+    $('#matchedCourseId').value=course.id;
     const info=courseInfoFor(course.course_code);
-    $('#matchedCourseId').value=course.id;$('#matchedCourseTitle').textContent=course.course_title;$('#matchedCourseUnits').textContent=course.credit_units;
+    $('#matchedCourseTitle').textContent=course.course_title;$('#matchedCourseUnits').textContent=course.credit_units;
     $('#matchedCourseLevel').textContent=course.level||info.level||'—';$('#matchedCourseSemester').textContent=Number(course.semester||info.semester)===2?'Second':'First';
-    panel.classList.remove('hidden');updateScorePreview();
+    $('#courseMatch').classList.remove('hidden');
+    $('#courseDropdown').classList.add('hidden');$('#lookupCourseCode').setAttribute('aria-expanded','false');
+    updateScorePreview();
+  }
+  function matchCourseCode(){
+    const code=$('#lookupCourseCode').value.trim().toUpperCase();
+    const course=courseCache.find(c=>String(c.course_code).toUpperCase()===code);
+    if(course){selectCourse(course.id);return;}
+    $('#matchedCourseId').value='';$('#courseMatch').classList.add('hidden');renderCourseDropdown(code);updateScorePreview();
+  }
+  function handleCourseSearchInput(){
+    const input=$('#lookupCourseCode');const value=input.value.toUpperCase();if(input.value!==value)input.value=value;
+    $('#matchedCourseId').value='';$('#courseMatch').classList.add('hidden');renderCourseDropdown(value);updateScorePreview();
+  }
+  function handleCourseSearchKeys(e){
+    const dropdown=$('#courseDropdown');const options=[...dropdown.querySelectorAll('[data-course-id]')];
+    if(e.key==='ArrowDown'&&options.length){e.preventDefault();options[0].focus();}
+    if(e.key==='Escape'){dropdown.classList.add('hidden');$('#lookupCourseCode').setAttribute('aria-expanded','false');}
   }
   function calculateGrade(total){
     if(!gradeSettings||!Array.isArray(gradeSettings.grade_boundaries))return null;
@@ -222,8 +247,8 @@
     $('#saveManualResult').disabled=true;manualResultMessage('Saving your result…');
     const {error}=await supabaseClient.from('results').upsert(payload,{onConflict:'user_id,course_code,academic_session,semester'});
     if(error){$('#saveManualResult').disabled=false;return manualResultMessage(error.message,'error');}
-    $('#manualResultForm').reset();$('#courseMatch').classList.add('hidden');$('#matchedCourseId').value='';$('#totalScorePreview').textContent='—';$('#gradePreview').textContent='—';$('#pointPreview').textContent='—';
-    manualResultMessage('Result saved. Your CGPA and charts have been updated.','success');updateScorePreview();await refreshData();
+    $('#manualResultForm').reset();$('#courseMatch').classList.add('hidden');$('#matchedCourseId').value='';$('#courseDropdown').classList.add('hidden');$('#lookupCourseCode').setAttribute('aria-expanded','false');$('#totalScorePreview').textContent='—';$('#gradePreview').textContent='—';$('#pointPreview').textContent='—';
+    manualResultMessage('Result saved successfully. Your CGPA, semester GPA and charts have been refreshed.','success');updateScorePreview();await refreshData();
   }
   function manualResultMessage(message,type=''){const el=$('#manualResultMessage');el.textContent=message;el.className='notice '+type;}
   function navigate(page){
@@ -239,7 +264,8 @@
   $('#accountShortcut').onclick=()=>navigate('account');$('#signOutBtn').onclick=signOut;$('#accountSignOut').onclick=signOut;$('#menuBtn').onclick=()=>{const open=$('#sidebar').classList.toggle('open');$('#menuBtn').setAttribute('aria-expanded',String(open));$('#menuBtn').setAttribute('aria-label',open?'Close navigation menu':'Open navigation menu');};
   $('#uploadForm').addEventListener('submit',handleUpload);$('#resultFile').addEventListener('change',e=>$('#fileLabel').textContent=e.target.files[0]?.name||'Choose a result document');
   $('#courseForm').addEventListener('submit',addCourse);
-  $('#lookupCourseCode').addEventListener('input',matchCourseCode);$('#lookupCourseCode').addEventListener('change',matchCourseCode);
+  $('#lookupCourseCode').addEventListener('input',handleCourseSearchInput);$('#lookupCourseCode').addEventListener('change',matchCourseCode);$('#lookupCourseCode').addEventListener('keydown',handleCourseSearchKeys);
+  document.addEventListener('click',e=>{if(!e.target.closest('.course-search-wrap')){$('#courseDropdown')?.classList.add('hidden');$('#lookupCourseCode')?.setAttribute('aria-expanded','false');}});
   $('#assignmentScore').addEventListener('input',updateScorePreview);$('#examScore').addEventListener('input',updateScorePreview);
   $('#manualResultForm').addEventListener('submit',saveManualResult);
   $('#gradeSettingsForm').addEventListener('submit',saveGradeSettings);
