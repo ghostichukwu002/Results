@@ -1,6 +1,7 @@
 (() => {
   const $ = s => document.querySelector(s);
   const authView = $('#authView'), appView = $('#appView');
+  const ADMIN_EMAIL = 'okaforanointing37@gmail.com';
   let supabaseClient, currentUser, isAdmin = false, authMode = 'login';
   const initials = name => (name || 'A').trim().split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -33,14 +34,13 @@
     $('#sideName').textContent=name;$('#sideAvatar').textContent=initials(name);$('#accountShortcut').textContent=initials(name);
     $('#accountName').textContent=name;$('#accountEmail').textContent=user.email||'';$('#accountAvatar').textContent=initials(name);$('#accountId').textContent=user.id;
     const {data:adminFlag,error:adminError}=await supabaseClient.rpc('current_user_is_admin');
-    isAdmin=!adminError&&adminFlag===true;
+    isAdmin=!adminError&&adminFlag===true&&String(user.email||'').toLowerCase()===ADMIN_EMAIL;
     $('#sideRole').textContent=isAdmin?'Course administrator':'Student account';
     $('#roleBadge').textContent=isAdmin?'Course administrator':'Student account';$('#roleBadge').classList.toggle('admin',isAdmin);
     $('#coursesNav').classList.toggle('hidden',!isAdmin);
     $('#permissionTitle').textContent=isAdmin?'Course administrator + student':'Student access';
     $('#permissionCopy').textContent=isAdmin?'You can maintain the shared departmental course catalogue. Your own results remain private, just like every other user’s. Admin access does not let you view another person’s grades or documents.':'You can upload and manage your own results, documents and academic history. Other users cannot access your records.';
-    $('#adminSetupNote').classList.toggle('hidden',isAdmin);
-    $('#adminSql').textContent=`insert into public.app_admins (user_id) values ('${user.id}') on conflict (user_id) do nothing;`;
+    $('#studentAccessNote').classList.toggle('hidden',isAdmin);
     await refreshData();
   }
   async function refreshData(){
@@ -84,6 +84,7 @@
     const {error}=await supabaseClient.from('courses').insert(payload);if(error){alert(error.message);return;}$('#courseForm').reset();$('#courseUnits').value='2';await loadCourses();
   }
   function navigate(page){
+    if(page==='courses'&&!isAdmin){page='overview';}
     document.querySelectorAll('.page-section').forEach(el=>el.classList.add('hidden'));$('#page-'+page)?.classList.remove('hidden');
     document.querySelectorAll('.nav-link').forEach(el=>el.classList.toggle('active',el.dataset.page===page));
     $('#pageCrumb').textContent=({overview:'Overview',results:'My results',uploads:'Upload results',courses:'Course catalogue',account:'My account'})[page]||'Overview';
@@ -92,9 +93,8 @@
   async function signOut(){await supabaseClient.auth.signOut();currentUser=null;}
   document.querySelectorAll('.nav-link').forEach(b=>b.addEventListener('click',()=>navigate(b.dataset.page)));
   document.addEventListener('click',e=>{const b=e.target.closest('[data-goto]');if(b)navigate(b.dataset.goto);});
-  $('#accountShortcut').onclick=()=>navigate('account');$('#signOutBtn').onclick=signOut;$('#accountSignOut').onclick=signOut;$('#menuBtn').onclick=()=>$('#sidebar').classList.toggle('open');
+  $('#accountShortcut').onclick=()=>navigate('account');$('#signOutBtn').onclick=signOut;$('#accountSignOut').onclick=signOut;$('#menuBtn').onclick=()=>{const open=$('#sidebar').classList.toggle('open');$('#menuBtn').setAttribute('aria-expanded',String(open));$('#menuBtn').setAttribute('aria-label',open?'Close navigation menu':'Open navigation menu');};
   $('#uploadForm').addEventListener('submit',handleUpload);$('#resultFile').addEventListener('change',e=>$('#fileLabel').textContent=e.target.files[0]?.name||'Choose a result document');
   $('#courseForm').addEventListener('submit',addCourse);
-  $('#copyAdminSql').onclick=async()=>{await navigator.clipboard.writeText($('#adminSql').textContent);$('#copyAdminSql').textContent='Copied';};
   setAuthMode('login');init();
 })();
