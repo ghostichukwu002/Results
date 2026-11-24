@@ -1,4 +1,4 @@
-# Academic Results Hub
+# E.M.A.C.O.T.S
 
 A private, mobile-first academic results tracker for one department. Every person registers with their own email and can access only their own academic records.
 
@@ -7,6 +7,7 @@ A private, mobile-first academic results tracker for one department. Every perso
 - Personal account page with email, account ID and role
 - Private result-document uploads to Supabase Storage
 - Personal result list and CGPA calculation from saved course grades
+- Personal semester GPA trend and grade distribution charts (based only on the signed-in user's own saved grades)
 - Course catalogue visible to authenticated users; course management is admin-only
 - Responsive mobile-first interface
 - Vercel production hosting connected to this GitHub repository
