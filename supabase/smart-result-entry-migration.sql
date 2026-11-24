@@ -62,7 +62,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = public
-as $
+as $$
 declare
   settings public.grade_settings%rowtype;
   matched_boundary jsonb;
@@ -107,7 +107,7 @@ begin
 
   return new;
 end;
-$;
+$$;
 
 drop trigger if exists results_apply_grade on public.results;
 create trigger results_apply_grade
@@ -123,6 +123,8 @@ commit;
 -- After running this migration:
 -- 1. Sign in with the designated administrator account.
 -- 2. Open Course catalogue > Grading rules.
--- 3. Enter the department-approved assignment/exam maximum marks.
+-- 3. Enter the department-approved assignment/exam maximum marks (combined maximum must not exceed 100).
 -- 4. Enter every grade boundary and its official grade point.
 -- 5. Save the rules. Students can then enter results.
+-- 6. If grading rules are changed later, re-trigger grade calculation for existing rows once:
+--      update public.results set assignment_score = assignment_score where assignment_score is not null;

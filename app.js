@@ -5,6 +5,8 @@
   let supabaseClient, currentUser, isAdmin = false, authMode = 'login';
   let courseCache = [], gradeSettings = null;
   let performanceChart = null, gradeChart = null;
+  // crypto.randomUUID() is only available in secure contexts (HTTPS/localhost), so provide a fallback.
+  const newId = () => (window.crypto?.randomUUID ? crypto.randomUUID() : Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10));
   const initials = name => (name || 'A').trim().split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   function authMessage(message,type=''){const el=$('#authMessage');el.textContent=message;el.className='notice '+type}
@@ -17,7 +19,7 @@
     $('#authForm').addEventListener('submit',handleAuth);
     const {data:{session}}=await supabaseClient.auth.getSession();
     if(session) await showApp(session.user);
-    supabaseClient.auth.onAuthStateChange(async(event,session)=>{if(session&&event==='SIGNED_IN') await showApp(session.user); if(!session){appView.classList.add('hidden');authView.classList.remove('hidden');}});
+    supabaseClient.auth.onAuthStateChange(async(event,session)=>{if(session&&event==='SIGNED_IN'&&currentUser?.id!==session.user.id) await showApp(session.user); if(!session){currentUser=null;appView.classList.add('hidden');authView.classList.remove('hidden');}});
   }
   async function handleAuth(e){
     e.preventDefault();const email=$('#email').value.trim(),password=$('#password').value;
@@ -91,12 +93,16 @@
   async function handleUpload(e){
     e.preventDefault();const file=$('#resultFile').files[0];if(!file)return;
     if(file.size>20*1024*1024){uploadMessage('That file is larger than 20 MB.','error');return;}
-    const allowed=['application/pdf','image/jpeg','image/png','image/webp'];if(!allowed.includes(file.type)){uploadMessage('Please choose a PDF, JPG, PNG or WEBP file.','error');return;}
-    const session=$('#sessionInput').value.trim(),semester=Number($('#semesterInput').value),safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,'_'),path=`${currentUser.id}/${crypto.randomUUID()}-${safeName}`;
+    // Some phones (and some file managers) report an empty MIME type, so fall back to the file extension.
+    const extension=(file.name.split('.').pop()||'').toLowerCase();
+    const extensionMime={pdf:'application/pdf',jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',webp:'image/webp'}[extension];
+    const mime=file.type||extensionMime||'';
+    const allowed=['application/pdf','image/jpeg','image/png','image/webp'];if(!allowed.includes(mime)){uploadMessage('Please choose a PDF, JPG, PNG or WEBP file.','error');return;}
+    const session=$('#sessionInput').value.trim(),semester=Number($('#semesterInput').value),safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,'_'),path=`${currentUser.id}/${newId()}-${safeName}`;
     uploadMessage('Uploading your document securely…');
     try{
-      const {error:storageError}=await supabaseClient.storage.from('result-documents').upload(path,file,{contentType:file.type,upsert:false});if(storageError)throw storageError;
-      const {error:rowError}=await supabaseClient.from('uploaded_documents').insert({user_id:currentUser.id,file_name:file.name,storage_path:path,mime_type:file.type,file_size:file.size,academic_session:session,semester,processing_status:'review_required'});
+      const {error:storageError}=await supabaseClient.storage.from('result-documents').upload(path,file,{contentType:mime,upsert:false});if(storageError)throw storageError;
+      const {error:rowError}=await supabaseClient.from('uploaded_documents').insert({user_id:currentUser.id,file_name:file.name,storage_path:path,mime_type:mime,file_size:file.size,academic_session:session,semester,processing_status:'review_required'});
       if(rowError){await supabaseClient.storage.from('result-documents').remove([path]);throw rowError;}
       $('#uploadForm').reset();$('#fileLabel').textContent='Choose a result document';uploadMessage('Upload complete. The document is saved privately; results still need to be entered and reviewed.','success');await refreshData();
     }catch(err){uploadMessage(err.message||'Upload failed. Please try again.','error');}
@@ -151,8 +157,15 @@
     const {error}=await supabaseClient.from('courses').insert(payload);if(error){alert(error.message);return;}$('#courseForm').reset();$('#courseUnits').value='2';await loadCourses();await loadCourseLookup();
   }
   function renderGradeRuleRows(boundaries=[]){
-    const byGrade=new Map(boundaries.map(b=>[String(b.grade).toUpperCase(),b]));
-    $('#gradeRuleRows').innerHTML=['A','B','C','D','E','F'].map(grade=>{const item=byGrade.get(grade)||{};return '<div class="grade-rule-row"><input aria-label="Grade label" class="rule-grade" value="'+grade+'" maxlength="3" required><input aria-label="Minimum score for '+grade+'" class="rule-min" type="number" min="0" step="0.01" value="'+(item.min??'')+'" placeholder="Minimum" '+(grade==='F'?'value="0" readonly':'required')+'><input aria-label="Grade point for '+grade+'" class="rule-point" type="number" min="0" step="0.01" value="'+(item.point??'')+'" placeholder="Point" '+(grade==='F'?'value="0" readonly':'required')+'></div>';}).join('');
+    // Use the saved grade labels when they exist, so custom labels (e.g. A+, B-) are not lost on save.
+    const rows=boundaries.length
+      ?[...boundaries].sort((a,b)=>Number(b.min)-Number(a.min)).map(b=>({grade:String(b.grade||'').toUpperCase(),min:b.min,point:b.point}))
+      :['A','B','C','D','E','F'].map(grade=>({grade}));
+    $('#gradeRuleRows').innerHTML=rows.map(item=>{
+      const grade=item.grade,isF=grade==='F';
+      const minValue=isF?0:(item.min??''),pointValue=isF?0:(item.point??'');
+      return '<div class="grade-rule-row"><input aria-label="Grade label" class="rule-grade" value="'+escapeHtml(grade)+'" maxlength="3" required><input aria-label="Minimum score for '+escapeHtml(grade)+'" class="rule-min" type="number" min="0" step="0.01" value="'+minValue+'" placeholder="Minimum"'+(isF?' readonly':' required')+'><input aria-label="Grade point for '+escapeHtml(grade)+'" class="rule-point" type="number" min="0" step="0.01" value="'+pointValue+'" placeholder="Point"'+(isF?' readonly':' required')+'></div>';
+    }).join('');
   }
   async function loadGradeSettings(){
     renderGradeRuleRows();
@@ -168,6 +181,8 @@
     const rows=[...$('#gradeRuleRows').querySelectorAll('.grade-rule-row')];
     const boundaries=rows.map(row=>({grade:row.querySelector('.rule-grade').value.trim().toUpperCase(),min:Number(row.querySelector('.rule-min').value),point:Number(row.querySelector('.rule-point').value)}));
     if(!(assignmentMax>0&&examMax>0)){return gradeSettingsMessage('Assignment and examination maximums must both be greater than zero.','error');}
+    // results.score is constrained to 0–100 in the database, so the combined maximum cannot exceed 100.
+    if(totalMax>100){return gradeSettingsMessage('The assignment and examination maximums together cannot exceed 100.','error');}
     if(boundaries.some(b=>!b.grade||!Number.isFinite(b.min)||!Number.isFinite(b.point)||b.min<0||b.min>totalMax||b.point<0)){return gradeSettingsMessage('Check every grade label, minimum score and grade point.','error');}
     if(new Set(boundaries.map(b=>b.grade)).size!==boundaries.length||new Set(boundaries.map(b=>b.min)).size!==boundaries.length){return gradeSettingsMessage('Grade labels and minimum scores must be unique.','error');}
     if(!boundaries.some(b=>b.min===0)){return gradeSettingsMessage('Include a grade boundary beginning at 0.','error');}
@@ -206,7 +221,11 @@
   }
   function handleCourseSearchInput(){
     const input=$('#lookupCourseCode');const value=input.value.toUpperCase();if(input.value!==value)input.value=value;
-    $('#matchedCourseId').value='';$('#courseMatch').classList.add('hidden');renderCourseDropdown(value);updateScorePreview();
+    $('#matchedCourseId').value='';$('#courseMatch').classList.add('hidden');renderCourseDropdown(value);
+    // If the typed text is already an exact catalogue code, select it immediately so Save is not left disabled.
+    const exact=courseCache.find(c=>String(c.course_code).toUpperCase()===value.trim());
+    if(exact)selectCourse(exact.id);
+    updateScorePreview();
   }
   function handleCourseSearchKeys(e){
     const dropdown=$('#courseDropdown');const options=[...dropdown.querySelectorAll('[data-course-id]')];
