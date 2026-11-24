@@ -173,6 +173,10 @@ with check (id = auth.uid());
 -- No client-side access to the admin membership list.
 revoke all on public.app_admins from public, anon, authenticated;
 
+-- SQL privileges are required in addition to RLS policies.
+-- Authenticated users may read active courses; RLS limits writes to the admin.
+grant select, insert, update, delete on table public.courses to authenticated;
+
 drop policy if exists "Authenticated users can read active courses" on public.courses;
 create policy "Authenticated users can read active courses"
 on public.courses for select to authenticated
