@@ -287,10 +287,9 @@ using (
   and (storage.foldername(name))[1] = auth.uid()::text
 );
 
--- IMPORTANT: After your account is registered, promote the intended catalogue
--- administrator by running this manually in SQL Editor (replace with their Auth UID):
--- insert into public.app_admins (user_id) values ('YOUR-AUTH-USER-UUID')
--- on conflict (user_id) do nothing;
+-- The only administrator identity is okaforanointing37@gmail.com.
+-- No manual client-side promotion is permitted; the auth trigger and allow-list
+-- below grant this account catalogue-management access only.
 
 
 -- Enforce a single administrator identity. This also repairs any old/manual entries.
