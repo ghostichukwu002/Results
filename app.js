@@ -223,7 +223,7 @@
     const {error}=await supabaseClient.from('results').upsert(payload,{onConflict:'user_id,course_code,academic_session,semester'});
     if(error){$('#saveManualResult').disabled=false;return manualResultMessage(error.message,'error');}
     $('#manualResultForm').reset();$('#courseMatch').classList.add('hidden');$('#matchedCourseId').value='';$('#totalScorePreview').textContent='—';$('#gradePreview').textContent='—';$('#pointPreview').textContent='—';
-    manualResultMessage('Result saved. Your CGPA and charts have been updated.','success');await refreshData();$('#saveManualResult').disabled=false;
+    manualResultMessage('Result saved. Your CGPA and charts have been updated.','success');updateScorePreview();await refreshData();
   }
   function manualResultMessage(message,type=''){const el=$('#manualResultMessage');el.textContent=message;el.className='notice '+type;}
   function navigate(page){
