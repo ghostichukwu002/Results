@@ -215,20 +215,39 @@
   }
   function calculateGrade(total){
     if(!gradeSettings||!Array.isArray(gradeSettings.grade_boundaries))return null;
-    const boundary=gradeSettings.grade_boundaries.find(b=>total>=Number(b.min));
-    return boundary?{grade:boundary.grade,point:Number(boundary.point)}:null;
+    const boundaries=[...gradeSettings.grade_boundaries].sort((a,b)=>Number(b.min)-Number(a.min));
+    const boundary=boundaries.find(b=>total>=Number(b.min));
+    return boundary?{grade:String(boundary.grade||''),point:Number(boundary.point)}:null;
   }
   function updateScorePreview(){
-    const assignment=Number($('#assignmentScore').value),exam=Number($('#examScore').value);
-    const maxA=Number(gradeSettings?.assignment_max||0),maxE=Number(gradeSettings?.exam_max||0),total=assignment+exam;
-    const valid=gradeSettings&&$('#assignmentScore').value!==''&&$('#examScore').value!==''&&assignment>=0&&exam>=0&&assignment<=maxA&&exam<=maxE;
-    const calculated=valid?calculateGrade(total):null;
-    $('#totalScorePreview').textContent=valid?total.toFixed(2)+' / '+(maxA+maxE):'— / '+(maxA+maxE||'—');
-    $('#gradePreview').textContent=calculated?.grade||'—';$('#pointPreview').textContent=calculated?calculated.point.toFixed(2):'—';
-    $('#assignmentScore').max=maxA||'';$('#examScore').max=maxE||'';
-    $('#assignmentScore').placeholder=maxA?'Out of '+maxA:'Maximum not set';$('#examScore').placeholder=maxE?'Out of '+maxE:'Maximum not set';
-    $('#saveManualResult').disabled=!gradeSettings||!$('#matchedCourseId').value||!calculated;
-    $('#gradeConfigNotice').textContent=gradeSettings?'Assignment maximum: '+maxA+' · Examination maximum: '+maxE+' · Total: '+(maxA+maxE):'The administrator must configure the official grading rules before results can be submitted.';
+    const assignmentInput=$('#assignmentScore'),examInput=$('#examScore');
+    const assignmentRaw=assignmentInput.value.trim(),examRaw=examInput.value.trim();
+    const assignment=assignmentRaw===''?null:Number(assignmentRaw),exam=examRaw===''?null:Number(examRaw);
+    const maxA=Number(gradeSettings?.assignment_max||0),maxE=Number(gradeSettings?.exam_max||0),totalMax=maxA+maxE;
+    const hasAnyScore=assignment!==null||exam!==null;
+    const assignmentValid=assignment===null||(Number.isFinite(assignment)&&assignment>=0&&(!maxA||assignment<=maxA));
+    const examValid=exam===null||(Number.isFinite(exam)&&exam>=0&&(!maxE||exam<=maxE));
+    const total=Number(assignment||0)+Number(exam||0);
+    const scoresComplete=assignment!==null&&exam!==null;
+    const scoresValid=Boolean(gradeSettings&&scoresComplete&&assignmentValid&&examValid);
+    const calculated=scoresValid?calculateGrade(total):null;
+
+    // Show a running total while typing; only calculate a grade when both scores are valid.
+    $('#totalScorePreview').textContent=hasAnyScore&&assignmentValid&&examValid
+      ?total.toFixed(2)+' / '+(totalMax||'—')
+      :'— / '+(totalMax||'—');
+    $('#gradePreview').textContent=calculated?.grade||'—';
+    $('#pointPreview').textContent=calculated&&Number.isFinite(calculated.point)?calculated.point.toFixed(2):'—';
+
+    assignmentInput.max=maxA||'';examInput.max=maxE||'';
+    assignmentInput.placeholder=maxA?'Out of '+maxA:'Maximum not set';
+    examInput.placeholder=maxE?'Out of '+maxE:'Maximum not set';
+    assignmentInput.setCustomValidity(assignmentValid?'':'Enter an assignment score within the configured maximum.');
+    examInput.setCustomValidity(examValid?'':'Enter an examination score within the configured maximum.');
+    $('#saveManualResult').disabled=!gradeSettings||!$('#matchedCourseId').value||!calculated||!Number.isFinite(calculated.point);
+    $('#gradeConfigNotice').textContent=gradeSettings
+      ?'Assignment maximum: '+maxA+' · Examination maximum: '+maxE+' · Total: '+totalMax
+      :'The administrator must configure the official grading rules before results can be submitted.';
   }
   async function saveManualResult(e){
     e.preventDefault();
