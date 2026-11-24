@@ -1,41 +1,39 @@
 # Academic Results Hub
 
-A private, mobile-first academic records platform for organizing student profiles, uploaded result documents, semester courses, GPA/CGPA and downloadable academic reports.
+A private, mobile-first academic results tracker for one department. Every person registers with their own email and can access only their own academic records.
 
-## Current status
-This commit establishes the responsive frontend foundation. It uses temporary in-memory student entries and does **not** persist data. Do not enter real student information until authentication, database policies and private file storage are connected.
+## Current features
+- Supabase email/password registration and sign-in
+- Personal account page with email, account ID and role
+- Private result-document uploads to Supabase Storage
+- Personal result list and CGPA calculation from saved course grades
+- Course catalogue visible to authenticated users; course management is admin-only
+- Responsive mobile-first interface
+- Vercel production hosting connected to this GitHub repository
 
-## Planned stack
-- Frontend: HTML, CSS and JavaScript
-- Database: Supabase PostgreSQL
-- Authentication: Supabase Auth
-- Private document storage: Supabase Storage
-- Backend/API: Node.js where server-side processing is needed
-- OCR: document extraction with human review before records are verified
-- Hosting: Vercel
+## Supabase setup
+1. In Supabase SQL Editor, run the complete `supabase/schema.sql` file.
+2. In Authentication → URL Configuration, add your Vercel production URL to Site URL and Redirect URLs.
+3. In Authentication → Providers, enable Email. For a real deployment, keep email confirmation enabled.
+4. The browser uses only the Supabase project URL and publishable key from `config.js`. Never add a secret/service-role key to frontend files.
 
-## Planned data model
-- profiles / workspace_members
-- students
-- academic_sessions
-- semesters
-- courses
-- results
-- uploaded_documents
-- grading_schemes
-- audit_logs
+## Create your admin account
+1. Open the website and choose **Create account** using the email address you want as your admin login.
+2. Verify your email if confirmation is enabled, then sign in.
+3. Open **My account** and copy the Account ID.
+4. In Supabase SQL Editor, run the SQL shown in the account's admin setup note (it inserts only that user ID into `public.app_admins`).
+5. Sign out and sign back in. The Course catalogue section will appear.
 
-## Security requirements
-- Private-by-default workspace
-- Authenticated access only
-- Row Level Security on every student/result table
-- Private storage buckets and short-lived signed URLs
-- Role-based permissions
-- Audit log for edits and approvals
-- OCR output must be reviewed before verification
+Admin permission is limited to managing the shared departmental course catalogue. It does not grant access to another user's results, uploads, grades or transcript. An admin can access their own records as a normal user.
 
-## Local preview
-Run `npm install` if needed, then `npm run dev`.
+## Security notes
+- Row Level Security restricts profiles, results and document metadata to the signed-in owner.
+- The `result-documents` Storage bucket is private; files are stored under the owner's Auth UUID.
+- Public sign-up never allows a user to choose the admin role.
+- Do not upload real student information until the SQL schema has been run and the Supabase Auth settings have been checked.
 
-## Next
-Add Supabase project URL and anon/publishable key as environment variables, design the schema and RLS policies, then connect authentication and persistent records.
+## Current limitations
+- OCR extraction and result review workflow are not implemented yet.
+- The result-document upload is active, but grades must still be entered into the results table by a future result-entry/review interface.
+- The grading scheme is not yet configured; confirm your department's grading scale before relying on GPA/CGPA.
+- PDF transcript export is still to be built.
