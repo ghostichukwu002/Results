@@ -1,28 +1,100 @@
-const students = [];
-const $ = (selector) => document.querySelector(selector);
-const dialog = $('#studentDialog');
-const form = $('#studentForm');
-function renderStudents(query = '') {
-  const filtered = students.filter(s => (s.fullName + ' ' + s.matricNo).toLowerCase().includes(query.toLowerCase()));
-  $('#studentList').innerHTML = filtered.map((s, i) => `<div class="student-row"><div class="avatar">${s.fullName.split(/\\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase()}</div><div class="student-meta"><strong>${escapeHtml(s.fullName)}</strong><small>${escapeHtml(s.matricNo || 'Matric number not added')} · ${escapeHtml(s.department || 'Department not added')}</small></div><button type="button" data-student="${i}">Open profile</button></div>`).join('');
-  $('#studentEmpty').hidden = filtered.length > 0;
-  $('#studentCount').textContent = String(students.length);
-}
-function escapeHtml(value) { return String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function openForm(){ dialog.showModal(); }
-$('#addStudentBtn').addEventListener('click', openForm);
-$('#emptyAddBtn').addEventListener('click', openForm);
-$('#studentSearch').addEventListener('input', e => renderStudents(e.target.value));
-form.addEventListener('submit', e => {
-  e.preventDefault();
-  const data = new FormData(form);
-  students.push({fullName:data.get('fullName').trim(),matricNo:data.get('matricNo').trim(),department:data.get('department').trim(),institution:data.get('institution').trim()});
-  form.reset(); dialog.close(); renderStudents($('#studentSearch').value);
-});
-$('#resultFile').addEventListener('change', e => {
-  const file = e.target.files[0];
-  $('#fileName').textContent = file ? `${file.name} selected. Database and secure storage connection are pending.` : 'Documents will require review before results are marked verified.';
-});
-$('#menuBtn').addEventListener('click', () => $('#sidebar').classList.toggle('open'));
-renderStudents();
-// This is a UI foundation only. Connect Supabase Auth, PostgreSQL, Storage and OCR before using real student records.
+(() => {
+  const $ = s => document.querySelector(s);
+  const authView = $('#authView'), appView = $('#appView');
+  let supabaseClient, currentUser, isAdmin = false, authMode = 'login';
+  const initials = name => (name || 'A').trim().split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();
+  const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  function authMessage(message,type=''){const el=$('#authMessage');el.textContent=message;el.className='notice '+type}
+  function uploadMessage(message,type=''){const el=$('#uploadMessage');el.textContent=message;el.className='notice '+type}
+  function setAuthMode(mode){authMode=mode;const signup=mode==='signup';$('#loginTab').classList.toggle('active',!signup);$('#signupTab').classList.toggle('active',signup);$('#nameField').classList.toggle('hidden',!signup);$('#fullName').required=signup;$('#password').autocomplete=signup?'new-password':'current-password';$('#authTitle').innerHTML=signup?'Create your <em>account.</em>':'Welcome <em>back.</em>';$('#authSubtitle').textContent=signup?'Use your own email address to create a private account.':'Sign in to access your academic records.';$('#authSubmit').textContent=signup?'Create account':'Sign in';authMessage('');}
+  async function init(){
+    if(!window.supabase||!window.SUPABASE_CONFIG?.url||!window.SUPABASE_CONFIG?.publishableKey){authMessage('Supabase configuration is missing. Please check config.js.','error');return;}
+    supabaseClient=window.supabase.createClient(window.SUPABASE_CONFIG.url,window.SUPABASE_CONFIG.publishableKey);
+    $('#loginTab').onclick=()=>setAuthMode('login');$('#signupTab').onclick=()=>setAuthMode('signup');
+    $('#authForm').addEventListener('submit',handleAuth);
+    const {data:{session}}=await supabaseClient.auth.getSession();
+    if(session) await showApp(session.user);
+    supabaseClient.auth.onAuthStateChange(async(event,session)=>{if(session&&event==='SIGNED_IN') await showApp(session.user); if(!session){appView.classList.add('hidden');authView.classList.remove('hidden');}});
+  }
+  async function handleAuth(e){
+    e.preventDefault();const email=$('#email').value.trim(),password=$('#password').value;
+    $('#authSubmit').disabled=true;authMessage(authMode==='signup'?'Creating your account…':'Signing you in…');
+    try{
+      if(authMode==='signup'){
+        const full_name=$('#fullName').value.trim();
+        const {data,error}=await supabaseClient.auth.signUp({email,password,options:{data:{full_name}}});if(error)throw error;
+        if(data.session) await showApp(data.user); else authMessage('Account created. Check your email for the verification link, then return here to sign in.','success');
+      }else{const {data,error}=await supabaseClient.auth.signInWithPassword({email,password});if(error)throw error;await showApp(data.user);}
+    }catch(err){authMessage(err.message||'Could not complete sign-in.','error');}finally{$('#authSubmit').disabled=false;}
+  }
+  async function showApp(user){
+    currentUser=user;authView.classList.add('hidden');appView.classList.remove('hidden');
+    const name=user.user_metadata?.full_name||user.user_metadata?.name||user.email?.split('@')[0]||'Student';
+    $('#sideName').textContent=name;$('#sideAvatar').textContent=initials(name);$('#accountShortcut').textContent=initials(name);
+    $('#accountName').textContent=name;$('#accountEmail').textContent=user.email||'';$('#accountAvatar').textContent=initials(name);$('#accountId').textContent=user.id;
+    const {data:adminFlag,error:adminError}=await supabaseClient.rpc('current_user_is_admin');
+    isAdmin=!adminError&&adminFlag===true;
+    $('#sideRole').textContent=isAdmin?'Course administrator':'Student account';
+    $('#roleBadge').textContent=isAdmin?'Course administrator':'Student account';$('#roleBadge').classList.toggle('admin',isAdmin);
+    $('#coursesNav').classList.toggle('hidden',!isAdmin);
+    $('#permissionTitle').textContent=isAdmin?'Course administrator + student':'Student access';
+    $('#permissionCopy').textContent=isAdmin?'You can maintain the shared departmental course catalogue. Your own results remain private, just like every other user’s. Admin access does not let you view another person’s grades or documents.':'You can upload and manage your own results, documents and academic history. Other users cannot access your records.';
+    $('#adminSetupNote').classList.toggle('hidden',isAdmin);
+    $('#adminSql').textContent=`insert into public.app_admins (user_id) values ('${user.id}') on conflict (user_id) do nothing;`;
+    await refreshData();
+  }
+  async function refreshData(){
+    if(!currentUser)return;
+    const [{data:results,error:rErr},{data:docs,error:dErr}]=await Promise.all([
+      supabaseClient.from('results').select('id,course_code,course_title,credit_units,academic_session,semester,grade_point,grade,created_at').eq('user_id',currentUser.id).order('created_at',{ascending:false}),
+      supabaseClient.from('uploaded_documents').select('id,file_name,academic_session,semester,created_at').eq('user_id',currentUser.id).order('created_at',{ascending:false})
+    ]);
+    if(rErr||dErr){console.error(rErr||dErr);return;}
+    const rs=results||[],ds=docs||[];$('#courseCount').textContent=rs.length;$('#uploadCount').textContent=ds.length;
+    const totalUnits=rs.reduce((a,r)=>a+Number(r.credit_units||0),0),points=rs.reduce((a,r)=>a+Number(r.credit_units||0)*Number(r.grade_point||0),0);
+    $('#cgpaValue').textContent=totalUnits? (points/totalUnits).toFixed(2):'—';
+    const renderRows=arr=>arr.map(r=>`<div class="record-row"><div><strong>${escapeHtml(r.course_code||r.file_name)}</strong><small>${escapeHtml(r.course_title||((r.academic_session||'')+' · Semester '+(r.semester||'')))}</small></div><b>${escapeHtml(r.grade||'Uploaded')}</b></div>`).join('');
+    $('#recentResults').innerHTML=rs.length?renderRows(rs.slice(0,5)):'<div class="empty-state"><div class="empty-icon">▤</div><h3>Your academic story starts here</h3><p>Upload a result or add your courses to begin building your academic history.</p><button class="outline-btn" data-goto="uploads">Upload a result</button></div>';
+    $('#resultsList').innerHTML=rs.length?renderRows(rs):'<div class="empty-state"><div class="empty-icon">▤</div><h3>No results added yet</h3><p>Upload your result document to start your personal academic archive.</p><button class="outline-btn" data-goto="uploads">Upload a result</button></div>';
+    $('#recentResults').querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>navigate(b.dataset.goto));
+    $('#resultsList').querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>navigate(b.dataset.goto));
+    if(isAdmin) await loadCourses();
+  }
+  async function handleUpload(e){
+    e.preventDefault();const file=$('#resultFile').files[0];if(!file)return;
+    if(file.size>20*1024*1024){uploadMessage('That file is larger than 20 MB.','error');return;}
+    const allowed=['application/pdf','image/jpeg','image/png','image/webp'];if(!allowed.includes(file.type)){uploadMessage('Please choose a PDF, JPG, PNG or WEBP file.','error');return;}
+    const session=$('#sessionInput').value.trim(),semester=Number($('#semesterInput').value),safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,'_'),path=`${currentUser.id}/${crypto.randomUUID()}-${safeName}`;
+    uploadMessage('Uploading your document securely…');
+    try{
+      const {error:storageError}=await supabaseClient.storage.from('result-documents').upload(path,file,{contentType:file.type,upsert:false});if(storageError)throw storageError;
+      const {error:rowError}=await supabaseClient.from('uploaded_documents').insert({user_id:currentUser.id,file_name:file.name,storage_path:path,mime_type:file.type,file_size:file.size,academic_session:session,semester,processing_status:'review_required'});
+      if(rowError){await supabaseClient.storage.from('result-documents').remove([path]);throw rowError;}
+      $('#uploadForm').reset();$('#fileLabel').textContent='Choose a result document';uploadMessage('Upload complete. The document is saved privately; results still need to be entered and reviewed.','success');await refreshData();
+    }catch(err){uploadMessage(err.message||'Upload failed. Please try again.','error');}
+  }
+  async function loadCourses(){
+    const {data,error}=await supabaseClient.from('courses').select('id,course_code,course_title,credit_units').order('course_code');
+    if(error){$('#courseList').textContent=error.message;return;}
+    $('#courseList').innerHTML=(data||[]).map(c=>`<div class="record-row"><div><strong>${escapeHtml(c.course_code)}</strong><small>${escapeHtml(c.course_title)}</small></div><b>${escapeHtml(c.credit_units)} units</b></div>`).join('')||'<p class="notice">No courses have been added yet.</p>';
+  }
+  async function addCourse(e){
+    e.preventDefault();if(!isAdmin)return;
+    const payload={course_code:$('#courseCode').value.trim().toUpperCase(),course_title:$('#courseTitle').value.trim(),credit_units:Number($('#courseUnits').value),created_by:currentUser.id};
+    const {error}=await supabaseClient.from('courses').insert(payload);if(error){alert(error.message);return;}$('#courseForm').reset();$('#courseUnits').value='2';await loadCourses();
+  }
+  function navigate(page){
+    document.querySelectorAll('.page-section').forEach(el=>el.classList.add('hidden'));$('#page-'+page)?.classList.remove('hidden');
+    document.querySelectorAll('.nav-link').forEach(el=>el.classList.toggle('active',el.dataset.page===page));
+    $('#pageCrumb').textContent=({overview:'Overview',results:'My results',uploads:'Upload results',courses:'Course catalogue',account:'My account'})[page]||'Overview';
+    $('#sidebar').classList.remove('open');window.scrollTo({top:0,behavior:'smooth'});
+  }
+  async function signOut(){await supabaseClient.auth.signOut();currentUser=null;}
+  document.querySelectorAll('.nav-link').forEach(b=>b.addEventListener('click',()=>navigate(b.dataset.page)));
+  document.addEventListener('click',e=>{const b=e.target.closest('[data-goto]');if(b)navigate(b.dataset.goto);});
+  $('#accountShortcut').onclick=()=>navigate('account');$('#signOutBtn').onclick=signOut;$('#accountSignOut').onclick=signOut;$('#menuBtn').onclick=()=>$('#sidebar').classList.toggle('open');
+  $('#uploadForm').addEventListener('submit',handleUpload);$('#resultFile').addEventListener('change',e=>$('#fileLabel').textContent=e.target.files[0]?.name||'Choose a result document');
+  $('#courseForm').addEventListener('submit',addCourse);
+  $('#copyAdminSql').onclick=async()=>{await navigator.clipboard.writeText($('#adminSql').textContent);$('#copyAdminSql').textContent='Copied';};
+  setAuthMode('login');init();
+})();
