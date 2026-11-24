@@ -3,6 +3,7 @@
   const authView = $('#authView'), appView = $('#appView');
   const ADMIN_EMAIL = 'okaforanointing37@gmail.com';
   let supabaseClient, currentUser, isAdmin = false, authMode = 'login';
+  let performanceChart = null, gradeChart = null;
   const initials = name => (name || 'A').trim().split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   function authMessage(message,type=''){const el=$('#authMessage');el.textContent=message;el.className='notice '+type}
@@ -53,6 +54,7 @@
     const rs=results||[],ds=docs||[];$('#courseCount').textContent=rs.length;$('#uploadCount').textContent=ds.length;
     const totalUnits=rs.reduce((a,r)=>a+Number(r.credit_units||0),0),points=rs.reduce((a,r)=>a+Number(r.credit_units||0)*Number(r.grade_point||0),0);
     $('#cgpaValue').textContent=totalUnits? (points/totalUnits).toFixed(2):'—';
+    renderCharts(rs);
     const renderRows=arr=>arr.map(r=>`<div class="record-row"><div><strong>${escapeHtml(r.course_code||r.file_name)}</strong><small>${escapeHtml(r.course_title||((r.academic_session||'')+' · Semester '+(r.semester||'')))}</small></div><b>${escapeHtml(r.grade||'Uploaded')}</b></div>`).join('');
     $('#recentResults').innerHTML=rs.length?renderRows(rs.slice(0,5)):'<div class="empty-state"><div class="empty-icon">▤</div><h3>Your academic story starts here</h3><p>Upload a result or add your courses to begin building your academic history.</p><button class="outline-btn" data-goto="uploads">Upload a result</button></div>';
     $('#resultsList').innerHTML=rs.length?renderRows(rs):'<div class="empty-state"><div class="empty-icon">▤</div><h3>No results added yet</h3><p>Upload your result document to start your personal academic archive.</p><button class="outline-btn" data-goto="uploads">Upload a result</button></div>';
@@ -60,6 +62,40 @@
     $('#resultsList').querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>navigate(b.dataset.goto));
     if(isAdmin) await loadCourses();
   }
+
+  function renderCharts(rows){
+    const performanceCanvas=$('#performanceChart'),gradeCanvas=$('#gradeChart');
+    if(!performanceCanvas||!gradeCanvas||!window.Chart)return;
+    const semesterMap=new Map();
+    rows.forEach(r=>{
+      const key=(r.academic_session||'Session not set')+' · '+(Number(r.semester)===2?'Second':'First')+' semester';
+      const units=Number(r.credit_units||0),gp=Number(r.grade_point||0);
+      if(!semesterMap.has(key))semesterMap.set(key,{units:0,points:0,sort:(r.academic_session||'')+'-'+String(r.semester||'1')});
+      const item=semesterMap.get(key);item.units+=units;item.points+=units*gp;
+    });
+    const semesters=[...semesterMap.entries()].sort((a,b)=>a[1].sort.localeCompare(b[1].sort));
+    const hasPerformance=semesters.some(([,v])=>v.units>0);
+    $('#performanceEmpty').classList.toggle('hidden',hasPerformance);
+    if(performanceChart)performanceChart.destroy();
+    performanceChart=new Chart(performanceCanvas,{
+      type:'line',
+      data:{labels:semesters.map(([label])=>label),datasets:[{label:'Semester GPA',data:semesters.map(([,v])=>v.units?Number((v.points/v.units).toFixed(2)):null),borderColor:'#df7738',backgroundColor:'rgba(223,119,56,.13)',fill:true,tension:.38,pointRadius:4,pointHoverRadius:6,pointBackgroundColor:'#df7738',pointBorderColor:'#fff',pointBorderWidth:2,spanGaps:true}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1d304b',padding:11,displayColors:false,callbacks:{label:c=>' GPA: '+(c.parsed.y??'—')}}},scales:{x:{grid:{display:false},ticks:{color:'#8a94a2',font:{size:10},maxRotation:0,autoSkip:true}},y:{beginAtZero:true,suggestedMax:5,grid:{color:'rgba(30,48,75,.07)'},ticks:{color:'#8a94a2',font:{size:10},precision:1}}}}
+    });
+    const gradeCounts=new Map();
+    rows.forEach(r=>{const grade=String(r.grade||'').trim().toUpperCase();if(grade&&grade!=='UPLOADED')gradeCounts.set(grade,(gradeCounts.get(grade)||0)+1);});
+    const gradeEntries=[...gradeCounts.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
+    const hasGrades=gradeEntries.length>0;
+    $('#gradeEmpty').classList.toggle('hidden',hasGrades);
+    if(gradeChart)gradeChart.destroy();
+    gradeChart=new Chart(gradeCanvas,{
+      type:'doughnut',
+      data:{labels:gradeEntries.map(([g])=>g),datasets:[{data:gradeEntries.map(([,n])=>n),backgroundColor:['#df7738','#314d73','#6d9a83','#e8b46d','#8b91b0','#bd8d9c','#9aa8b6'],borderColor:'#fff',borderWidth:4,hoverOffset:5}]},
+      options:{responsive:true,maintainAspectRatio:false,cutout:'70%',plugins:{legend:{display:false},tooltip:{backgroundColor:'#1d304b',padding:10}}}
+    });
+    $('#gradeLegend').innerHTML=gradeEntries.map(([grade,count],i)=>'<span class="legend-item"><i class="legend-dot" style="background:'+['#df7738','#314d73','#6d9a83','#e8b46d','#8b91b0','#bd8d9c','#9aa8b6'][i%7]+'"></i>'+escapeHtml(grade)+' <b>'+count+'</b></span>').join('');
+  }
+
   async function handleUpload(e){
     e.preventDefault();const file=$('#resultFile').files[0];if(!file)return;
     if(file.size>20*1024*1024){uploadMessage('That file is larger than 20 MB.','error');return;}
