@@ -64,7 +64,7 @@
     $('#cgpaValue').textContent=cgpa===null?'—':cgpa.toFixed(2);
     $('#cgpaClass').textContent=cgpa===null?'Calculated from saved grades':degreeClass(cgpa);
     renderCharts(rs);
-    const renderRows=arr=>arr.map(r=>`<div class="record-row result-record"><div><strong>${escapeHtml(r.course_code)}</strong><small>${escapeHtml(r.course_title)} · ${escapeHtml(r.academic_session)} · ${Number(r.semester)===2?'Second':'First'} semester</small><small class="score-detail">Assignment ${r.assignment_score??'—'} · Exam ${r.exam_score??'—'} · Total ${r.total_score??r.score??'—'}</small></div><div class="result-grade"><b>${escapeHtml(r.grade||'Pending')}</b><small>${Number(r.grade_point||0).toFixed(1)} GP</small></div></div>`).join('');
+    const renderRows=arr=>arr.map(r=>`<div class="record-row result-record"><div><strong>${escapeHtml(r.course_code)}</strong><small>${escapeHtml(r.course_title)} · ${escapeHtml(r.academic_session)} · ${Number(r.semester)===2?'Second':'First'} semester</small><small class="score-detail">Assignment ${r.assignment_score??'—'} · Exam ${r.exam_score??'—'} · Total ${r.total_score??r.score??'—'}</small></div><div class="result-grade"><b>${escapeHtml(r.grade||'Pending')}</b><small>${Number(r.grade_point||0).toFixed(1)} GP</small><button type="button" class="delete-result-btn" data-delete-result="${escapeHtml(r.id)}" aria-label="Delete ${escapeHtml(r.course_code)} result" style="margin-top:6px;background:none;border:1px solid #b3261e;color:#b3261e;border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer">Delete</button></div></div>`).join('');
     $('#recentResults').innerHTML=rs.length?renderRows(rs.slice(0,5)):'<div class="empty-state"><div class="empty-icon">▤</div><h3>Your academic story starts here</h3><p>Enter a course code and add your first result.</p><button class="outline-btn" data-goto="uploads">Add a result</button></div>';
     $('#resultsList').innerHTML=rs.length?renderRows(rs):'<div class="empty-state"><div class="empty-icon">▤</div><h3>No results added yet</h3><p>Enter a course code to add your first result.</p><button class="outline-btn" data-goto="uploads">Add a result</button></div>';
     $('#recentResults').querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>navigate(b.dataset.goto));
@@ -291,6 +291,17 @@
       ?'Assignment maximum: '+maxA+' · Examination maximum: '+maxE+' · Total: '+totalMax
       :'The administrator must configure the official grading rules before results can be submitted.';
   }
+  // Deletes one of the signed-in user's results. RLS also restricts this to their own rows.
+  async function deleteResult(id,button){
+    if(!currentUser||!id)return;
+    const courseCode=button.closest('.result-record')?.querySelector('strong')?.textContent||'this result';
+    if(!confirm('Delete '+courseCode+'? This cannot be undone.'))return;
+    button.disabled=true;
+    const {error}=await supabaseClient.from('results').delete().eq('id',id).eq('user_id',currentUser.id);
+    if(error){button.disabled=false;alert('Could not delete the result: '+error.message);return;}
+    await refreshData();
+  }
+  document.addEventListener('click',e=>{const b=e.target.closest('[data-delete-result]');if(b)deleteResult(b.dataset.deleteResult,b);});
   async function saveManualResult(e){
     e.preventDefault();
     if(!currentUser)return;
