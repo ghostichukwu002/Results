@@ -69,6 +69,7 @@
     $('#resultsList').innerHTML=rs.length?renderRows(rs):'<div class="empty-state"><div class="empty-icon">▤</div><h3>No results added yet</h3><p>Enter a course code to add your first result.</p><button class="outline-btn" data-goto="uploads">Add a result</button></div>';
     $('#recentResults').querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>navigate(b.dataset.goto));
     $('#resultsList').querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>navigate(b.dataset.goto));
+    renderPendingCourses(rs);
   }
   function renderCharts(rows){
     const performanceCanvas=$('#performanceChart'),gradeCanvas=$('#gradeChart');
@@ -290,6 +291,24 @@
     $('#gradeConfigNotice').textContent=gradeSettings
       ?'Assignment maximum: '+maxA+' · Examination maximum: '+maxE+' · Total: '+totalMax
       :'The administrator must configure the official grading rules before results can be submitted.';
+  }
+  // Lists active catalogue courses that have no saved result for this user (matched by course code, any session).
+  function renderPendingCourses(results){
+    const taken=new Set(results.map(r=>String(r.course_code||'').trim().toUpperCase()));
+    const pending=courseCache.filter(c=>!taken.has(String(c.course_code||'').trim().toUpperCase()));
+    $('#pendingCount').textContent=pending.length;
+    if(!courseCache.length){$('#pendingCourses').innerHTML='<p class="course-empty">The course catalogue is empty.</p>';return;}
+    if(!pending.length){$('#pendingCourses').innerHTML='<div class="empty-state"><div class="empty-icon">✓</div><h3>All catalogue courses have results</h3><p>Nothing is outstanding.</p></div>';return;}
+    const groups=new Map();
+    pending.forEach(c=>{
+      const level=c.level||'Other';
+      const semester=Number(c.semester)===2?'Second semester':Number(c.semester)===1?'First semester':'Semester not set';
+      const key=level+' · '+semester;
+      if(!groups.has(key))groups.set(key,{level,semester,sort:level+'-'+(Number(c.semester)||9),items:[]});
+      groups.get(key).items.push(c);
+    });
+    const ordered=[...groups.entries()].sort((a,b)=>a[1].sort.localeCompare(b[1].sort));
+    $('#pendingCourses').innerHTML=ordered.map(([key,g])=>'<section class="course-group"><div class="course-group-heading"><h3>'+escapeHtml(key)+'</h3><span>'+g.items.length+' outstanding</span></div><div class="course-table-wrap"><table class="course-table"><thead><tr><th>Course code</th><th>Course title</th><th>Units</th></tr></thead><tbody>'+g.items.sort((a,b)=>String(a.course_code).localeCompare(String(b.course_code))).map(c=>'<tr><td><strong>'+escapeHtml(c.course_code)+'</strong></td><td>'+escapeHtml(c.course_title)+'</td><td>'+escapeHtml(c.credit_units)+'</td></tr>').join('')+'</tbody></table></div></section>').join('');
   }
   // Deletes one of the signed-in user's results. RLS also restricts this to their own rows.
   async function deleteResult(id,button){
